@@ -1,15 +1,275 @@
-# CONSOLIDATED: Project Assets
-# GENERATED: 2025-11-17 11:58:38
-# FORMAT: JSONL (UTF-8)
-# TOTAL_ASSETS: 264
-# GROUPS:
-#   Other: 150
-#   Material: 21
-#   Prefab: 14
-#   Texture: 22
-#   ScriptableObject: 57
-# INDEX END
-#
+{"type":"meta","consolidated":"Project Assets","generated":"2025-11-17 14:11:10","format":"JSONL (UTF-8)","totalAssets":265}
+{"type":"groupSummary","group":"Other","count":151}
+{"type":"groupSummary","group":"Material","count":21}
+{"type":"groupSummary","group":"Prefab","count":14}
+{"type":"groupSummary","group":"Texture","count":22}
+{"type":"groupSummary","group":"ScriptableObject","count":57}
+{"type":"assetIndex","assetPath":"Assets/Art","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Caulking Gun","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Caulking Gun/Mat_Foundations.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Caulking Gun/Model_Prop_CaulkingGun.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Caulking Gun/Prefab_Prop_CaulkingGun.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Art/Caulking Gun/Tex_Foundations_Albedo.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Caulking Gun/Tex_Foundations_MRAO.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Caulking Gun/Tex_Foundations_Normal.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/HdrSkySunset007 (1)","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/HdrSkySunset007 (1)/HdrSkySunset007_HDR_4K.exr","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/HdrSkySunset007 (1)/HdrSkySunset007_HDR_4K.hdr","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/HdrSkySunset007 (1)/HdrSkySunset007_JPG_4K.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/HdrSkySunset007 (1)/HdrSkySunset007_JPG_4K_Extended.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/HdrSkySunset007 (1)/HdrSkySunset007_preview1.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/HdrSkySunset007 (1)/Skybox_Dawn.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/AluminumTape","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/AluminumTape/Materials & Textures","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/AluminumTape/Materials & Textures/Mat_AluminumTape_Piece(temp).mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Battery","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Battery/Mat_Battery.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Battery/SM_battery.obj","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Battery/T_battery_Height.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Battery/T_battery_Normal.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Battery/T_battery_orange_BC.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Drill","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Drill/Mat_Tools.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Drill/Model_Prop_powerdrill.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Drill/Prefab_Prop_powerdrill.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Drill/Tex_Tools_Albedo.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Drill/Tex_Tools_MRAO.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Props/Tools/Drill/Tex_Tools_Normal.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/huge_refinery.mtl","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Huge_refinery_texture_01.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Huge_refinery_texture_01.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Huge_refinery_texture_02.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Huge_refinery_texture_02.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Mat_Refinery.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Mat_Refinery_Landscape.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Prefab_Refinery.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_Huge_refinery_texture_02_Albedo.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_Huge_refinery_texture_02_MRAO.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_Huge_refinery_texture_02_Normal.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_Huge_refinery_texture_04_Albedo.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_Huge_refinery_texture_04_MRAO.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_Huge_refinery_texture_04_Normal.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_smoke1_Albedo.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_smoke1_MRAO.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Mats and Textures/Tex_smoke1_Normal.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/Refinery.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/sky_day.hdr","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/sky_day.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/sky_night.hdr","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/sky_night.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/smoke.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/smoke.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/smoke.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Refinery/smoke_opacity.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Insulation.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Mat_Insulation.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Mat_Tank.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Mat_Tank_Inside.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Prefab_Tank.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Prefab_Work_Area.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Tank.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Tex_Insulation_Albedo.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Tex_Insulation_MRAO.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Tex_Insulation_Normal.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Tex_Main_Blinn_Albedo.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Tex_Main_Blinn_MRAO.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Tex_Main_Blinn_Normal.tga","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Art/Tank/Work_Area.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/DefaultNetworkPrefabs.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Features","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Caulking","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Caulking/CaulkingGun.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Cutting","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Cutting/Scripts","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Cutting/Scripts/CutFillManager.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Cutting/Scripts/CutFillObject.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Cutting/Scripts/CutPiece.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Cutting/Scripts/Saw.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Fastening","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Fastening/Fastener.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Fastening/Prefabs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Fastening/Prefabs/Fastener.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Features/InsulationInstallation","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/InsulationInstallation/Insulation.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/environment post processing.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/hot post processing.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/Local","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/Local/DebugFPSTest.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/Local/RotateDemo.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/MetalThermal.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/Screen.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/Scripts","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/Scripts/ThermalCamera.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/thermal.shadergraph","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/ThermalCameraObject.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/ThermalMap.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/ThermalMapped.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/ThermalTexture.renderTexture","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Features/Thermal/ThermalWithMapping.shadergraph","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Consolidated_Framework_Editor_pt1.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Consolidated_Framework_Editor_pt2.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Consolidated_Framework_Runtime_pt1.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Consolidated_Framework_Runtime_pt2.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Consolidated_Framework_Runtime_pt3.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Consolidated_Project_Scripts_pt1.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Editor","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Editor/FrameworkAssetConsolidator.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Editor/ProjectFileConsolidator.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Editor/ProjectSettingsConsolidator.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Editor/SceneSnapshotExporter.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Editor/ScriptConsolidatorWindow.cs","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Local/Framework","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/CutFillObjects.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/InsulationSegment.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/PipeInner.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/PipeOuterCut.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/PipeOuterCutPiece.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/PipeOuterWhole.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/PipeOuterWholeHeat.fbx","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/PrototypePipeSet.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/SawSegment.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/TemporaryMaterials","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/TemporaryMaterials/Caulk.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/TemporaryMaterials/CaulkingReveal.shadergraph","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/TemporaryMaterials/Mat_Hologram_YellowMinimized.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/TemporaryMaterials/Rockwool.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/TemporaryMaterials/rockwoolNormal.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/TemporaryMaterials/RockwoolParticles.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/TemporaryMaterials/rockwoolTexture.jpg","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/Prototypes/ThermalMap.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/Resources","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Audio","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Audio/SoundManifest.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/AudioGlobalSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/GlobalData.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/IDSettings","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/IDSettings/ID_4qknF76o.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/IDSettings/ID_Global.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/NoLocalizationFrameworkTable.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/Scenarios","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/Scenarios/Refinery","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/Scenarios/Refinery/ObjectiveData.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/Scenarios/Refinery/PlayerRigData.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Data/Scenarios/Refinery/ScenarioData_Refinery.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Debug","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Debug/DebugConsole.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Debug/DebugConsoleText.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Debug/NameButton.prefab","category":"Prefab"}
+{"type":"assetIndex","assetPath":"Assets/Resources/HierarchyColorSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/HighlightingGlobalSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/InteractableObjectsGlobalSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Local","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Local/asset_checkout_cache.json","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/LocalizationGlobalSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/LogGlobalSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/PICOProjectSetting.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/PlayerGlobalSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/PXR_PlatformSetting.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Sounds","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Resources/Sounds/DrillWhirr.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Resources/UIGlobalSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/Environment_Refinery.unity","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery (1).asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery (2).asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery (3).asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery (4).asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery (5).asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery (6).asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery (7).asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery (8).asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/LMGroup_Prefab_Refinery.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/Scenario_Refinery","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Scenarios/Refinery/Scenes/Scenario_Refinery.unity","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Settings","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Settings/BakeryProjectSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/DefaultVolumeProfile.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/ftGlobalStorage.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/ftLocalStorage.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/Mobile_Renderer.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/Mobile_RPAsset.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/PC_Renderer.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/PC_RPAsset.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/SampleSceneProfile.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Settings/UniversalRenderPipelineGlobalSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/Sounds","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Sounds/DrillWhirr.mp3","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Sounds/RecipSawCuttingLoop.wav","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/Sounds/RecipSawIdle.wav","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Fonts","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Fonts/LiberationSans.ttf","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Fonts & Materials","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Drop Shadow.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Outline.mat","category":"Material"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/LineBreaking Following Characters.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/LineBreaking Leading Characters.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Sprite Assets","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Sprite Assets/EmojiOne.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Style Sheets","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/Style Sheets/Default Style Sheet.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Resources/TMP Settings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/SDFFunctions.hlsl","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMPro.cginc","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMPro_Mobile.cginc","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMPro_Properties.cginc","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMPro_Surface.cginc","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_Bitmap-Custom-Atlas.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_Bitmap-Mobile.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_Bitmap.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF Overlay.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF SSD.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-HDRP LIT.shadergraph","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-HDRP UNLIT.shadergraph","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile Masking.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile Overlay.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile SSD.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile-2-Pass.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-Surface-Mobile.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-Surface.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-URP Lit.shadergraph","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF-URP Unlit.shadergraph","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_SDF.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Shaders/TMP_Sprite.shader","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Sprites","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Sprites/EmojiOne Attribution.txt","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Sprites/EmojiOne.json","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/TextMesh Pro/Sprites/EmojiOne.png","category":"Texture"}
+{"type":"assetIndex","assetPath":"Assets/XR","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/XR/Loaders","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/XR/Loaders/OculusLoader.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XR/Loaders/OpenXRLoader.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XR/Loaders/PXR_PTLoader.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XR/Settings","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/XR/Settings/OculusSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XR/Settings/OpenXR Editor Settings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XR/Settings/OpenXR Package Settings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XR/Settings/PXR_PTSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XR/XRGeneralSettingsPerBuildTarget.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XRI","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/XRI/Settings","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/XRI/Settings/Resources","category":"Other"}
+{"type":"assetIndex","assetPath":"Assets/XRI/Settings/Resources/InteractionLayerSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XRI/Settings/Resources/XRDeviceSimulatorSettings.asset","category":"ScriptableObject"}
+{"type":"assetIndex","assetPath":"Assets/XRI/Settings/XRInteractionEditorSettings.asset","category":"ScriptableObject"}
+{"type":"indexEnd"}
 {"assetPath":"Assets/Art","category":"Asset","type":"UnityEditor.DefaultAsset","properties":{}}
 {"assetPath":"Assets/Art/Caulking Gun","category":"Asset","type":"UnityEditor.DefaultAsset","properties":{}}
 {"assetPath":"Assets/Art/Caulking Gun/Mat_Foundations.mat","category":"Material","shader":"AllIn13DShader/AllIn13DShader","properties":{"m_Shader":"Shader","m_ValidKeywords":"Valid Keywords","m_InvalidKeywords":"Invalid Keywords","m_LightmapFlags":"Lightmap Flags","m_EnableInstancingVariants":false,"m_DoubleSidedGI":false,"m_CustomRenderQueue":3000,"stringTagMap":"String Tag Map","disabledShaderPasses":"Disabled Shader Passes","m_LockedProperties":"","m_SavedProperties":"Saved Properties","m_BuildTextureStacks":"Build Texture Stacks"}}
@@ -128,6 +388,7 @@
 {"assetPath":"Assets/Local/Editor","category":"Asset","type":"UnityEditor.DefaultAsset","properties":{}}
 {"assetPath":"Assets/Local/Editor/FrameworkAssetConsolidator.cs","category":"Asset","type":"UnityEditor.MonoScript","properties":{"m_Icon":"Icon","m_Type":1,"m_ExecutionOrder":0,"m_ClassName":"FrameworkAssetConsolidator","m_Namespace":"","m_AssemblyName":"Assembly-CSharp-Editor"}}
 {"assetPath":"Assets/Local/Editor/ProjectFileConsolidator.cs","category":"Asset","type":"UnityEditor.MonoScript","properties":{"m_Icon":"Icon","m_Type":1,"m_ExecutionOrder":0,"m_ClassName":"ProjectFileConsolidator","m_Namespace":"","m_AssemblyName":"Assembly-CSharp-Editor"}}
+{"assetPath":"Assets/Local/Editor/ProjectSettingsConsolidator.cs","category":"Asset","type":"UnityEditor.MonoScript","properties":{"m_Icon":"Icon","m_Type":1,"m_ExecutionOrder":0,"m_ClassName":"ProjectSettingsConsolidator","m_Namespace":"","m_AssemblyName":"Assembly-CSharp-Editor"}}
 {"assetPath":"Assets/Local/Editor/SceneSnapshotExporter.cs","category":"Asset","type":"UnityEditor.MonoScript","properties":{"m_Icon":"Icon","m_Type":1,"m_ExecutionOrder":0,"m_ClassName":"SceneSnapshotExporter","m_Namespace":"","m_AssemblyName":"Assembly-CSharp-Editor"}}
 {"assetPath":"Assets/Local/Editor/ScriptConsolidatorWindow.cs","category":"Asset","type":"UnityEditor.MonoScript","properties":{"m_Icon":"Icon","m_Type":1,"m_ExecutionOrder":0,"m_ClassName":"ScriptConsolidatorWindow","m_Namespace":"Ldx.Tools.ScriptConsolidator","m_AssemblyName":"Assembly-CSharp-Editor"}}
 {"assetPath":"Assets/Local/Framework","category":"Asset","type":"UnityEditor.DefaultAsset","properties":{}}
