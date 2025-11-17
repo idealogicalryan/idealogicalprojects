@@ -1,9 +1,737 @@
 # CONSOLIDATED: Project
-# GENERATED: 2025-11-05 11:08:23
+# GENERATED: 2025-11-17 11:55:10
 # PART: 1
-# FILE COUNT (part): 0
+# FILE COUNT (part): 8
 # LINE ENDINGS: LF
 # ENCODING: UTF-8 (no BOM)
 # INDEX BEGIN
+# SYSTEM: FeaturesSystem (8 files)
+#   Assets/Features/Caulking/CaulkingGun.cs
+#   Assets/Features/Cutting/Scripts/CutFillManager.cs
+#   Assets/Features/Cutting/Scripts/CutFillObject.cs
+#   Assets/Features/Cutting/Scripts/CutPiece.cs
+#   Assets/Features/Cutting/Scripts/Saw.cs
+#   Assets/Features/Fastening/Fastener.cs
+#   Assets/Features/InsulationInstallation/Insulation.cs
+#   Assets/Features/Thermal/Scripts/ThermalCamera.cs
 # INDEX END
 #
+# FILE: Assets/Features/Caulking/CaulkingGun.cs
+# SYSTEM: FeaturesSystem
+# TYPE: Project
+# GUID: 119f93a13735b3d41805e0ddb420fc2a
+# ASMDEF: Assembly-CSharp.dll
+# ---
+using System;
+using System.Collections.Generic;
+using Autohand;
+using Cysharp.Threading.Tasks;
+using DG.Tweening;
+using Ldx.Framework.Utilities.Serializable;
+using UnityEngine;
+
+namespace Ldx.Thermography.Features.Caulking
+{
+    public class CaulkingGun : MonoBehaviour
+    {
+        [Serializable]
+        public struct StartAndEndPoints
+        {
+            public Transform startPoint;
+            public Transform endPoint;
+        }
+        
+        static readonly int revealId = Shader.PropertyToID("_Reveal");
+        static readonly string voxelizeOn = "_VOXELIZE_ON";
+        static readonly int voxelizeSize = Shader.PropertyToID("_VoxelSize");
+
+        [SerializeField] private Transform followTransform;
+        [SerializeField] private Transform caulkingGunStartPosition;
+        [SerializeField] private Collider trigger;
+        [SerializeField] private Rigidbody caulkingRb;
+        [SerializeField] private Renderer caulkingRenderer;
+        [SerializeField] private Grabbable caulkingGrabbable;
+
+        [SerializeField] private SerializableDictionary<Renderer, StartAndEndPoints> startPointToEndPointMap;
+
+        private Tween caulkingTween;
+
+        private void OnDestroy()
+        {
+            caulkingTween?.Kill();
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (other != trigger) 
+                return;
+
+            caulkingGrabbable.ForceHandsRelease();
+            caulkingGrabbable.isGrabbable = false;
+            trigger.gameObject.SetActive(false);
+            caulkingRb.isKinematic = true;
+            transform.SetParent(followTransform);
+            caulkingTween?.Kill();
+            caulkingTween = DOTween.Sequence()
+                .Append(transform.DOMove(caulkingGunStartPosition.position, 2))
+                .Join(transform.DORotateQuaternion(caulkingGunStartPosition.rotation, 2));
+            PerformCaulkingAnimationAsync().Forget();
+        }
+
+        private async UniTaskVoid PerformCaulkingAnimationAsync()
+        {
+            if (caulkingTween.IsPlaying())
+            {
+                await caulkingTween.AsyncWaitForCompletion();
+            }
+            
+            foreach (KeyValuePair<Renderer, StartAndEndPoints> kvp in startPointToEndPointMap)
+            {
+                caulkingTween = followTransform.DOMove(kvp.Value.startPoint.position, 0.25f);
+                await caulkingTween.AsyncWaitForCompletion();
+                
+                MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+                float t = 0f;
+                Renderer r = kvp.Key;
+                
+                // one tween runs the show
+                caulkingTween = DOTween.To(() => t, x => t = x, 1f, 3)
+                    .SetEase(Ease.InOutSine)
+                    .OnUpdate(() => {
+                        // move
+                        followTransform.position = Vector3.LerpUnclamped(kvp.Value.startPoint.position, kvp.Value.endPoint.position, t);
+                        // reveal
+                        r.GetPropertyBlock(mpb);
+                        mpb.SetFloat(revealId, t);
+                        r.SetPropertyBlock(mpb);
+                    });
+
+                await caulkingTween.AsyncWaitForCompletion();
+            }
+            
+            Disintegrate().Forget();
+        }
+
+        private async UniTaskVoid Disintegrate()
+        {
+            float voxelSize = 500f;
+            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+            caulkingRenderer.material.EnableKeyword(voxelizeOn);
+            while (voxelSize > 0.1f)
+            {
+                caulkingRenderer.GetPropertyBlock(mpb);
+                mpb.SetFloat(voxelizeSize, voxelSize);
+                caulkingRenderer.SetPropertyBlock(mpb);
+                voxelSize -= 3f;
+                await UniTask.Yield();
+            }
+            
+            gameObject.SetActive(false);
+        }
+    }
+}
+# --- end Assets/Features/Caulking/CaulkingGun.cs
+
+# FILE: Assets/Features/Cutting/Scripts/CutFillManager.cs
+# SYSTEM: FeaturesSystem
+# TYPE: Project
+# GUID: 485a8f28f6770cf42b5f755a2a9d44cc
+# ASMDEF: Assembly-CSharp.dll
+# ---
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Ldx.Thermography.Features.Cutting
+{
+    public class CutFillManager : MonoBehaviour
+    {
+        public static event Action OnCuttingComplete;
+        
+        [SerializeField] private List<CutFillObject> cutFillObjects;
+
+        private bool checking;
+
+        private void Start()
+        {
+            CutFillObject.OnCutStateChanged += HandleCutStateChanged;
+        }
+
+        private void OnDestroy()
+        {
+            CutFillObject.OnCutStateChanged -= HandleCutStateChanged;
+        }
+
+        private void HandleCutStateChanged()
+        {
+            if (cutFillObjects.Count > 0)
+            {
+                for (int i = cutFillObjects.Count - 1; i >= 0; i--)
+                {
+                    if (!cutFillObjects[i] || !cutFillObjects[i].CutState)
+                        continue;
+                    
+                    cutFillObjects[i].gameObject.SetActive(false);
+                    cutFillObjects.RemoveAt(i);
+                }
+            }
+            
+            if (cutFillObjects.Count == 0)
+            {
+                OnCuttingComplete?.Invoke();
+            }
+        }
+    }
+}
+# --- end Assets/Features/Cutting/Scripts/CutFillManager.cs
+
+# FILE: Assets/Features/Cutting/Scripts/CutFillObject.cs
+# SYSTEM: FeaturesSystem
+# TYPE: Project
+# GUID: 5d008c92923c9e648b50a6ad90a4d918
+# ASMDEF: Assembly-CSharp.dll
+# ---
+using System;
+using UnityEngine;
+
+namespace Ldx.Thermography.Features.Cutting
+{
+    public class CutFillObject : MonoBehaviour
+    {
+        public static event Action OnCutStateChanged;
+
+        [SerializeField] private Collider sawCollider;
+
+        public bool CutState { get; private set; }
+
+        private void OnCollisionEnter(Collision other)
+        {
+            if (other.collider != sawCollider)
+                return;
+
+            CutState = true;
+            OnCutStateChanged?.Invoke();
+        }
+    }
+}
+# --- end Assets/Features/Cutting/Scripts/CutFillObject.cs
+
+# FILE: Assets/Features/Cutting/Scripts/CutPiece.cs
+# SYSTEM: FeaturesSystem
+# TYPE: Project
+# GUID: ed1ebe5bc73c95c4b98d6c31de7677db
+# ASMDEF: Assembly-CSharp.dll
+# ---
+using System;
+using UnityEngine;
+
+namespace Ldx.Thermography.Features.Cutting
+{
+    public class CutPiece : MonoBehaviour
+    {
+        [SerializeField] private Rigidbody rb;
+        
+        private void Start()
+        {
+            CutFillManager.OnCuttingComplete += HandleCuttingComplete;
+        }
+
+        private void OnDestroy()
+        {
+            CutFillManager.OnCuttingComplete -= HandleCuttingComplete;
+        }
+
+        private void HandleCuttingComplete()
+        {
+            rb.isKinematic = false;
+        }
+    }
+}
+# --- end Assets/Features/Cutting/Scripts/CutPiece.cs
+
+# FILE: Assets/Features/Cutting/Scripts/Saw.cs
+# SYSTEM: FeaturesSystem
+# TYPE: Project
+# GUID: 34831d0babb0e8344a0b7c76e8478c1a
+# ASMDEF: Assembly-CSharp.dll
+# ---
+using System.Threading;
+using Autohand;
+using Cysharp.Threading.Tasks;
+using Ldx.Framework.Utilities.Extensions;
+using UnityEngine;
+
+namespace Ldx.Thermography.Features.Cutting
+{
+    [RequireComponent(typeof(Grabbable), typeof(Rigidbody))]
+    public class Saw : MonoBehaviour
+    {
+        private const float RATE = 20f; // Saw Blade Speed
+        private const float VOLUME_CHANGE_RATE = 0.01f; //Cutting sound fade rate
+        
+        [SerializeField] private Transform blade;
+        [SerializeField] private AudioSource sawIdle;
+        [SerializeField] private AudioSource sawCutting;
+        [SerializeField] private Grabbable sawGrabbable;
+        [SerializeField] private ParticleSystem insulationParticles;
+
+        private bool sawRunning;
+        private bool raisingCuttingAudio;
+        
+        private bool lerpUp = true;
+        private float lerpAmt;
+        private Vector3 startPos;
+        private Vector3 endPos;
+        
+        private CancellationTokenSource cts;
+        
+        private void Start()
+        {
+            CutFillObject.OnCutStateChanged += HandleCutStateChanged;
+            CutFillManager.OnCuttingComplete += HandleCuttingComplete;
+            sawGrabbable.OnGrabEvent += HandleGrabbed;
+            startPos = blade.localPosition;
+            endPos = blade.localPosition.Modify(y: blade.localPosition.y + 0.02f); 
+        }
+
+        private void OnDestroy()
+        {
+            CutFillObject.OnCutStateChanged -= HandleCutStateChanged;
+            CutFillManager.OnCuttingComplete -= HandleCuttingComplete;
+            sawGrabbable.OnGrabEvent -= HandleGrabbed;
+            cts.SafeCancelAndDispose();
+        }
+
+        private void Update()
+        {
+            if (!sawRunning)
+                return;
+
+            if (!raisingCuttingAudio && sawCutting.volume > 0f)
+            {
+                sawCutting.volume = Mathf.MoveTowards(sawCutting.volume, 0f, VOLUME_CHANGE_RATE);
+            }
+            
+            blade.localPosition = Vector3.Lerp(startPos, endPos, lerpAmt);
+            
+            lerpAmt += (lerpUp ? 1f : -1f) * RATE * Time.deltaTime;
+            lerpAmt = Mathf.Clamp(lerpAmt, 0f, 1f);
+            if (lerpAmt is <= 0 or >= 1)
+                lerpUp = !lerpUp;
+        }
+
+        private void HandleCuttingComplete()
+        {
+            sawGrabbable.ForceHandsRelease();
+            gameObject.SetActive(false);
+        }
+
+        private void HandleGrabbed(Hand hand, Grabbable grabbable)
+        {
+            sawRunning = true;
+            sawIdle.Play();
+        }
+
+        private void HandleCutStateChanged()
+        {
+            if (raisingCuttingAudio)
+                return;
+            
+            cts.SafeCancelAndDispose();
+            cts = new CancellationTokenSource();
+            insulationParticles.Play();
+            RaiseCutVolumeAsync(cts.Token).Forget();
+        }
+
+        private async UniTaskVoid RaiseCutVolumeAsync(CancellationToken token)
+        {
+            raisingCuttingAudio = true;
+            while (sawCutting.volume < 1f && !token.IsCancellationRequested)
+            {
+                sawCutting.volume = Mathf.MoveTowards(sawCutting.volume, 1f, VOLUME_CHANGE_RATE);
+                await UniTask.Yield();
+            }
+            
+            raisingCuttingAudio = false;
+        }
+    }
+}
+# --- end Assets/Features/Cutting/Scripts/Saw.cs
+
+# FILE: Assets/Features/Fastening/Fastener.cs
+# SYSTEM: FeaturesSystem
+# TYPE: Project
+# GUID: abc83f9d41c6c904c892264a0a8d14e5
+# ASMDEF: Assembly-CSharp.dll
+# ---
+using Cysharp.Threading.Tasks;
+using Ldx.Framework.Systems.AudioSystem;
+using Ldx.Framework.Systems.Objectives;
+using Ldx.Framework.Systems.Objectives.Tracking;
+using Ldx.Framework.Utilities.Animation;
+using Ldx.Framework.Utilities.Attributes;
+using Ldx.Framework.Utilities.Tools;
+using UnityEngine;
+
+namespace Ldx.Thermography.Features.Fastening
+{
+    [RequireComponent(typeof(DoTweenAnimation), typeof(AudioEmitter))]
+    public class Fastener : MonoBehaviour
+    {
+        private const int ANIMATION_TIME_MS = 1000;
+
+        [Tooltip("Only set on the last fastener")]
+        [IDSelection(LdxIdSettings.IdType.TrackingEvent)]
+        [SerializeField] private string fasteningCompleteEvent;
+        
+        [SerializeField] private EventOnTrigger startAnimationTrigger;
+        [SerializeField] private DoTweenAnimation installAnimation;
+        [SerializeField] private AudioEmitter sound;
+        [SerializeField] private Fastener nextFastener;
+
+        private void OnValidate()
+        {
+            if (!startAnimationTrigger)
+                startAnimationTrigger = GetComponentInChildren<EventOnTrigger>();
+            
+            if (!installAnimation)
+                installAnimation = GetComponent<DoTweenAnimation>();
+            
+            if (!sound)
+                sound = GetComponent<AudioEmitter>();
+        }
+
+        private void Start()
+        {
+            if (startAnimationTrigger)
+                startAnimationTrigger.OnTargetTriggerEnter += HandleTargetTriggerEnter;
+        }
+
+        private void OnDestroy()
+        {
+            if (startAnimationTrigger)
+                startAnimationTrigger.OnTargetTriggerEnter -= HandleTargetTriggerEnter;
+        }
+
+        private void HandleTargetTriggerEnter(EventOnTrigger _, Collider drill)
+        {
+            startAnimationTrigger.gameObject.SetActive(false);
+            installAnimation.Play();
+            sound.StartSound();
+            ActivateNextFastenerAsync().Forget();
+        }
+
+        private async UniTaskVoid ActivateNextFastenerAsync()
+        {
+            await UniTask.Delay(ANIMATION_TIME_MS);
+            if (nextFastener)
+                nextFastener.gameObject.SetActive(true);
+            else
+                LdxTrackingManager.Instance.BroadcastTrackingEvent(fasteningCompleteEvent);
+        }
+    }
+}
+# --- end Assets/Features/Fastening/Fastener.cs
+
+# FILE: Assets/Features/InsulationInstallation/Insulation.cs
+# SYSTEM: FeaturesSystem
+# TYPE: Project
+# GUID: 0e3ad36d0dd16454db8be0d4a5abb423
+# ASMDEF: Assembly-CSharp.dll
+# ---
+using System.Threading;
+using Autohand;
+using Cysharp.Threading.Tasks;
+using Ldx.Framework.Features.Interaction;
+using Ldx.Framework.Systems.Objectives;
+using Ldx.Framework.Systems.Objectives.Tracking;
+using Ldx.Framework.Systems.Player;
+using Ldx.Framework.Utilities.Attributes;
+using Ldx.Framework.Utilities.Extensions;
+using UnityEngine;
+
+namespace Ldx.Thermography.Features.InsulationInstallation
+{
+    /// <summary>
+    /// Installs a rectangular insulation piece using a custom, stateful flow with two-hand requirement,
+    /// hologram alignment, snap, push-along-local-Z, and forced release at a release Transform.
+    /// </summary>
+    [RequireComponent(typeof(Rigidbody), typeof(Grabbable))]
+    public class Insulation : MonoBehaviour
+    {
+        public enum InstallState
+        {
+            Idle = 0,
+            Aligning,
+            Snapping,
+            Pushing,
+            Completed
+        }
+
+        private const float MIN_SNAP_DURATION = 0.01f;
+
+        [IDSelection(LdxIdSettings.IdType.TrackingEvent)]
+        [SerializeField] private string startInsulationAnimationEvent;
+
+        [Header("Core References")]
+        [SerializeField] private Rigidbody rb;
+        [SerializeField] private Grabbable grabbable;
+        [SerializeField] private Transform releasePoint;
+
+        [Header("Guidance")]
+        [SerializeField] private HologramObjectHighlighting hologram;
+        [SerializeField] private GameObject textGuidance;
+
+        [Header("Tuning")]
+        [SerializeField] private float positionTolerance = 0.02f;
+        [SerializeField] private float rotationToleranceDeg = 5f;
+        [SerializeField] private float snapDuration = 0.15f;
+        [SerializeField] private float snapMaxSpeed = 10f;
+        [SerializeField] private float pushGain = 1f;
+        [SerializeField] private bool clampForwardOnly = true;
+        [SerializeField] private float releaseProximity = 0.01f;
+
+        private CancellationTokenSource cts;
+
+        private InstallState state = InstallState.Idle;
+        public InstallState State => state;
+
+        private Transform holoPose;
+        private Vector3 snapPos;
+        private Quaternion snapRot;
+        private Vector3 snapForward;
+        private float accumulatedForward;
+        private float releaseForward;
+        private Vector3 handsBaseline;
+        private bool hologramVisible;
+        private Transform leftHandFollow;
+        private Transform rightHandFollow;
+
+        private void OnValidate()
+        {
+            if (!rb) 
+                rb = GetComponent<Rigidbody>();
+            
+            if (!grabbable)
+                grabbable = GetComponent<Grabbable>();
+        }
+
+        private void Awake()
+        {
+            HideHologram();
+            state = InstallState.Idle;
+        }
+
+        private void Start()
+        {
+            holoPose = hologram.transform;
+            grabbable.OnGrabEvent += HandleHandGrabbed;
+            leftHandFollow = PlayerController.Instance.HandsController.LeftHand.follow;
+            rightHandFollow = PlayerController.Instance.HandsController.RightHand.follow;
+        }
+
+        private void OnDisable()
+        {
+            cts.SafeCancelAndDispose();
+        }
+
+        private void OnDestroy()
+        {
+            grabbable.OnGrabEvent -= HandleHandGrabbed;
+            cts.SafeCancelAndDispose();
+        }
+
+        private void HandleHandGrabbed(Hand hand, Grabbable grabbable1)
+        {
+            if (IsHeldByBothHands())
+            {
+                cts = new CancellationTokenSource();
+                RunInstallationLoopAsync(cts.Token).Forget();
+                state = InstallState.Aligning;
+                textGuidance.SetActive(false);
+                ShowHologram();
+            }
+            else
+            {
+                textGuidance.SetActive(true);
+            }
+        }
+
+        private async UniTaskVoid RunInstallationLoopAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested && state != InstallState.Completed)
+            {
+                if (state == InstallState.Aligning)
+                {
+                    if (IsWithinTolerance())
+                    {
+                        HideHologram();
+                        state = InstallState.Snapping;
+                        await SnapToHologramAsync(token);
+
+                        snapPos = transform.position;
+                        snapRot = transform.rotation;
+                        snapForward = snapRot * Vector3.forward;
+                        accumulatedForward = 0f;
+                        releaseForward = Vector3.Dot(releasePoint.position - snapPos, snapForward);
+                        handsBaseline = GetHandsAveragePosition();
+
+                        state = InstallState.Pushing;
+                    }
+                }
+                else if (state == InstallState.Pushing)
+                {
+                    Vector3 currentAvg = GetHandsAveragePosition();
+                    Vector3 delta = currentAvg - handsBaseline;
+                    float forwardDelta = Vector3.Dot(delta, snapForward);
+                    if (clampForwardOnly && forwardDelta < 0f) forwardDelta = 0f;
+
+                    float desiredForward = accumulatedForward + (forwardDelta * pushGain);
+                    if (clampForwardOnly && desiredForward < 0f) desiredForward = 0f;
+
+                    Vector3 targetPos = snapPos + snapForward * desiredForward;
+                    rb.MovePosition(targetPos);
+                    rb.MoveRotation(snapRot);
+
+                    float distToRelease = Mathf.Abs(desiredForward - releaseForward);
+                    if (desiredForward >= releaseForward || distToRelease <= releaseProximity)
+                    {
+                        ForceReleaseAndFinish();
+                        state = InstallState.Completed;
+                    }
+                    else
+                    {
+                        accumulatedForward = desiredForward;
+                        handsBaseline = currentAvg;
+                    }
+                }
+
+                await UniTask.Yield(PlayerLoopTiming.Update, token);
+            }
+        }
+
+        private bool IsWithinTolerance()
+        {
+            float pos = Vector3.Distance(transform.position, holoPose.position);
+            float ang = Quaternion.Angle(transform.rotation, holoPose.rotation);
+            return pos <= positionTolerance && ang <= rotationToleranceDeg;
+        }
+
+        private async UniTask SnapToHologramAsync(CancellationToken token)
+        {
+            rb.isKinematic = true;
+            HideHologram();
+
+            float d = snapDuration < MIN_SNAP_DURATION ? 0f : snapDuration;
+            if (d <= 0f)
+            {
+                rb.MovePosition(holoPose.position);
+                rb.MoveRotation(holoPose.rotation);
+                return;
+            }
+
+            float t = 0f;
+            Vector3 startPos = transform.position;
+            Quaternion startRot = transform.rotation;
+
+            while (t < d && !token.IsCancellationRequested)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / d);
+
+                Vector3 lerpPos = Vector3.Lerp(startPos, holoPose.position, u);
+                float maxStep = snapMaxSpeed * Time.deltaTime;
+                Vector3 step = Vector3.MoveTowards(transform.position, lerpPos, maxStep);
+
+                rb.MovePosition(step);
+                rb.MoveRotation(Quaternion.Slerp(startRot, holoPose.rotation, u));
+
+                await UniTask.Yield(PlayerLoopTiming.Update, token);
+            }
+
+            rb.MovePosition(holoPose.position);
+            rb.MoveRotation(holoPose.rotation);
+        }
+
+        private void ForceReleaseAndFinish()
+        {
+            grabbable.ForceHandsRelease();
+
+            grabbable.isGrabbable = false;
+
+            LdxTrackingManager.Instance.BroadcastTrackingEvent(startInsulationAnimationEvent);
+
+            rb.isKinematic = true;
+        }
+
+        private bool IsHeldByBothHands()
+        {
+            return grabbable.GetHeldBy().Count > 1;
+        }
+
+        private Vector3 GetHandsAveragePosition()
+        {
+            Vector3 a = leftHandFollow.transform.position;
+            Vector3 b = rightHandFollow.transform.position;
+            return (a + b) * 0.5f;
+        }
+
+        private void ShowHologram()
+        {
+            if (hologramVisible) return;
+            hologramVisible = true;
+            hologram.SetVisible(true);
+        }
+
+        private void HideHologram()
+        {
+            if (!hologramVisible) return;
+            hologramVisible = false;
+            hologram.SetVisible(false);
+        }
+    }
+}
+# --- end Assets/Features/InsulationInstallation/Insulation.cs
+
+# FILE: Assets/Features/Thermal/Scripts/ThermalCamera.cs
+# SYSTEM: FeaturesSystem
+# TYPE: Project
+# GUID: 0287722a2176a9440998be00ff03daa4
+# ASMDEF: Assembly-CSharp.dll
+# ---
+using Autohand;
+using UnityEngine;
+
+namespace Ldx.Thermography.Features.Thermal
+{
+    public class ThermalCamera : MonoBehaviour
+    {
+        [SerializeField] private GameObject screenOff;
+        [SerializeField] private GameObject screenOn;
+        [SerializeField] private Grabbable grabbable;
+        
+        private void Start()
+        {
+            SwapScreens();
+            grabbable.OnGrabEvent += HandleGrabbed;
+        }
+
+        private void OnDestroy()
+        {
+            grabbable.OnGrabEvent -= HandleGrabbed;
+        }
+
+        private void HandleGrabbed(Hand hand, Grabbable grabbable1)
+        {
+            SwapScreens();
+        }
+
+        private void SwapScreens()
+        {
+            screenOff.SetActive(!screenOff.activeSelf);
+            screenOn.SetActive(!screenOn.activeSelf);
+        }
+    }
+}
+# --- end Assets/Features/Thermal/Scripts/ThermalCamera.cs
+

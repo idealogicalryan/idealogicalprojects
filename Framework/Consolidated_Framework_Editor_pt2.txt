@@ -1,11 +1,29 @@
 # CONSOLIDATED: Framework.Editor
-# GENERATED: 2025-11-05 11:08:24
+# GENERATED: 2025-11-17 11:55:12
 # PART: 2
-# FILE COUNT (part): 264
+# FILE COUNT (part): 282
 # LINE ENDINGS: LF
 # ENCODING: UTF-8 (no BOM)
 # INDEX BEGIN
-# SYSTEM: com_ldx_frameworkSystem (264 files)
+# SYSTEM: com_ldx_frameworkSystem (282 files)
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGEditorUtility.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGGraph.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGModuleEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGResourceEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CurvyGeneratorEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/MetaCGOptionsEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/CurvyControllerEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/MoveModeDrawer.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/OnPositionReachedSettingsDrawer.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/PathControllerEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/SplineControllerEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/VolumeControllerEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyConnectionEditor.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyEditorBase.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyEditorUtility.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyMenu.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyPositionModeDrawer.cs
+#   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyProject.cs
 #   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyPropertyDrawers.cs
 #   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyShapeEditor.cs
 #   Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvySplineAlignWizard.cs
@@ -272,6 +290,4155 @@
 #   Packages/com_ldx_framework/ThirdParty/Dreamteck/Utilities/Editor/WelcomeWindow.cs
 # INDEX END
 #
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGEditorUtility.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: a3160a5daacc00349af244daf1e13e36
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using System;
+using UnityEngine;
+using UnityEditor;
+using System.Collections.Generic;
+using FluffyUnderware.Curvy.Generator;
+using FluffyUnderware.Curvy.Utils;
+using System.Reflection;
+using FluffyUnderware.DevToolsEditor;
+using FluffyUnderware.DevToolsEditor.Extensions;
+using FluffyUnderware.DevTools.Extensions;
+using FluffyUnderware.DevTools;
+using FluffyUnderware.Curvy;
+using System.IO;
+
+namespace FluffyUnderware.CurvyEditor.Generator
+{
+    public static class CGEditorUtility
+    {
+
+        static List<CGModuleOutputSlot> findOutputSlots(CurvyGenerator generator, bool includeOnRequestProcessing, System.Type filterSlotDataType = null)
+        {
+            List<CGModule> modules = generator.GetModules(includeOnRequestProcessing);
+            List<CGModuleOutputSlot> res = new List<CGModuleOutputSlot>();
+            foreach (CGModule mod in modules)
+                res.AddRange(mod.GetOutputSlots(filterSlotDataType));
+            return res;
+        }
+
+        public static void ShowOutputSlotsMenu(GenericMenu.MenuFunction2 func, System.Type filterSlotDataType = null)
+        {
+            GenericMenu mnu = new GenericMenu();
+            CurvyGenerator[] generators = Component.FindObjectsOfType<CurvyGenerator>();
+
+            mnu.AddItem(new GUIContent("none"), false, func, null);
+
+            foreach (CurvyGenerator gen in generators)
+            {
+                List<CGModuleOutputSlot> slots = findOutputSlots(gen, false, filterSlotDataType);
+                foreach (CGModuleOutputSlot slot in slots)
+                    mnu.AddItem(new GUIContent(gen.name + "/" + slot.Module.ModuleName + "/" + slot.Info.DisplayName), false, func, slot);
+            }
+
+            mnu.ShowAsContext();
+        }
+
+        public static List<CGModule> CopyModules(IList<CGModule> sourceModules, CurvyGenerator target, Vector2 canvasPosition)
+        {
+            List<CGModule> res = new List<CGModule>();
+
+            Dictionary<int, int> IDMapping = new Dictionary<int, int>();
+
+
+            // I. Copy Module, store mapping from old to new ID
+            foreach (CGModule mod in sourceModules)
+            {
+                int oldID = mod.UniqueID;
+                // Duplicate module GameObject and parent it to the target Generator, also ensure a unique module name and module id
+                CGModule newMod = mod.CopyTo(target);
+                res.Add(newMod);
+                IDMapping.Add(oldID, newMod.UniqueID);
+                newMod.Properties.Dimensions.position += canvasPosition;
+
+                // ! Handle managed Resources !
+                /*
+                var resourceFields = DTUtility.GetFieldsWithAttribute(mod.GetType(), typeof(CGResourceManagerAttribute), BindingFlags.Instance | BindingFlags.NonPublic);
+                foreach (var fi in resourceFields)
+                {
+                    var v = fi.GetValue(mod) as Component;
+                    // Managed?
+                    if (v != null && v.transform.parent == mod.transform)
+                    {
+                        var newV = v.DuplicateGameObject(newMod.transform);
+                        if (newV != null)
+                            fi.SetValue(newMod, newV);
+                    }
+                }*/
+                //newMod.renameManagedResourcesINTERNAL();
+
+            }
+            // II. Update Links to use the new IDs
+            for (int m = 0; m < res.Count; m++)
+            {
+                CGModule mod = res[m];
+                int newID = mod.UniqueID;
+
+                for (int i = mod.InputLinks.Count - 1; i >= 0; i--)
+                {
+                    // if target module was copied as well, change both IDs
+                    int newTargetID;
+                    if (IDMapping.TryGetValue(mod.InputLinks[i].TargetModuleID, out newTargetID))
+                    {
+                        mod.InputLinks[i].SetModuleIDIINTERNAL(newID, newTargetID);
+                    }
+                    else // otherwise delete link
+                        mod.InputLinks.RemoveAt(i);
+                }
+                for (int i = mod.OutputLinks.Count - 1; i >= 0; i--)
+                {
+                    // if target module was copied as well, change both IDs
+                    int newTargetID;
+                    if (IDMapping.TryGetValue(mod.OutputLinks[i].TargetModuleID, out newTargetID))
+                    {
+                        mod.OutputLinks[i].SetModuleIDIINTERNAL(newID, newTargetID);
+                    }
+                    else // otherwise delete link
+                        mod.OutputLinks.RemoveAt(i);
+                }
+                mod.ReInitializeLinkedSlots();
+            }
+
+
+            /// III. Reinitialize target generator
+            target.Initialize(true);
+
+            return res;
+        }
+
+        public static bool CreateTemplate(IList<CGModule> modules, string absFilePath)
+        {
+            if (!Directory.Exists(Path.GetDirectoryName(absFilePath)))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(absFilePath));
+
+            }
+            // Convert absolute to relative path
+            absFilePath = absFilePath.Replace(Application.dataPath, "Assets");
+            if (modules.Count == 0 || string.IsNullOrEmpty(absFilePath))
+                return false;
+
+            CurvyGenerator assetGenerator = CurvyGenerator.Create();
+            assetGenerator.name = Path.GetFileNameWithoutExtension(absFilePath);
+            CopyModules(modules, assetGenerator, Vector2.zero);
+            foreach (CGModule mod in assetGenerator.Modules)
+                mod.OnTemplateCreated();
+            assetGenerator.ArrangeModules();
+            PrefabUtility.SaveAsPrefabAsset(assetGenerator.gameObject, absFilePath);
+            GameObject.DestroyImmediate(assetGenerator.gameObject);
+            AssetDatabase.Refresh();
+            return true;
+
+        }
+
+        public static List<CGModule> LoadTemplate(CurvyGenerator generator, string path, Vector2 canvasPosition)
+        {
+            CurvyGenerator srcGen = AssetDatabase.LoadAssetAtPath(path, typeof(CurvyGenerator)) as CurvyGenerator;
+            if (srcGen)
+                return CGEditorUtility.CopyModules(srcGen.Modules, generator, canvasPosition);
+            else
+                return null;
+        }
+
+        public static void SetModulesExpandedState(bool expanded, params CGModule[] modules)
+        {
+            foreach (CGModule mod in modules)
+                mod.Properties.Expanded.target = expanded;
+        }
+
+        public static void SceneGUIPlot(Vector3[] vertices, int verticesCount, float size, Color col)
+        {
+            DTHandles.PushHandlesColor(col);
+            for (int index = 0; index < verticesCount; index++)
+            {
+                Vector3 v = vertices[index];
+                Handles.CubeHandleCap(0, v, Quaternion.identity, size * HandleUtility.GetHandleSize(v), EventType.Repaint);
+            }
+
+            DTHandles.PopHandlesColor();
+        }
+        
+        [Obsolete("Use the other overload or make a copy of this method")]
+        public static void SceneGUIPlot(IList<Vector3> vertices, float size, Color col)
+        {
+            DTHandles.PushHandlesColor(col);
+            for (int index = 0; index < vertices.Count; index++)
+            {
+                Vector3 v = vertices[index];
+                Handles.CubeHandleCap(0, v, Quaternion.identity, size * HandleUtility.GetHandleSize(v), EventType.Repaint);
+            }
+
+            DTHandles.PopHandlesColor();
+        }
+
+        public static void SceneGUILabels(Vector3[] vertices, int verticesCount, IList<string> labels, Color col, Vector2 offset)
+        {
+            Dictionary<Vector3, string> labelsByPos = new Dictionary<Vector3, string>();
+            int ub = Mathf.Min(verticesCount, labels.Count);
+
+            for (int i = 0; i < ub; i++)
+            {
+                string val;
+                if (labelsByPos.TryGetValue(vertices[i], out val))
+                    labelsByPos[vertices[i]] = val + "," + labels[i];
+                else
+                    labelsByPos.Add(vertices[i], labels[i]);
+            }
+
+            GUIStyle style = new GUIStyle(EditorStyles.boldLabel);
+            style.normal.textColor = col;
+            foreach (KeyValuePair<Vector3, string> kv in labelsByPos)
+                Handles.Label(DTHandles.TranslateByPixel(kv.Key, offset), kv.Value, style);
+
+        }
+        
+        [Obsolete("Use the other overload or make a copy of this method")]
+        public static void SceneGUILabels(IList<Vector3> vertices, IList<string> labels, Color col, Vector2 offset)
+        {
+            Dictionary<Vector3, string> labelsByPos = new Dictionary<Vector3, string>();
+            int ub = Mathf.Min(vertices.Count, labels.Count);
+
+            for (int i = 0; i < ub; i++)
+            {
+                string val;
+                if (labelsByPos.TryGetValue(vertices[i], out val))
+                    labelsByPos[vertices[i]] = val + "," + labels[i];
+                else
+                    labelsByPos.Add(vertices[i], labels[i]);
+            }
+
+            GUIStyle style = new GUIStyle(EditorStyles.boldLabel);
+            style.normal.textColor = col;
+            foreach (KeyValuePair<Vector3, string> kv in labelsByPos)
+                Handles.Label(DTHandles.TranslateByPixel(kv.Key, offset), kv.Value, style);
+
+        }
+
+        public static void SceneGUIPoly(IEnumerable<Vector3> vertices, Color col)
+        {
+            DTHandles.PushHandlesColor(col);
+
+            Handles.DrawPolyLine(vertices as Vector3[]);
+            DTHandles.PopHandlesColor();
+        }
+
+
+    }
+
+
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGEditorUtility.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGGraph.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: c4d6374fae71341468322075901f0d3b
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using System;
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.DevTools.Extensions;
+using FluffyUnderware.DevToolsEditor.Extensions;
+using FluffyUnderware.Curvy.Generator;
+using System.Collections.Generic;
+using System.Linq;
+using FluffyUnderware.DevToolsEditor;
+using UnityEditor.AnimatedValues;
+using FluffyUnderware.DevTools;
+using System.Reflection;
+using JetBrains.Annotations;
+using UnityEditor.Experimental.SceneManagement;
+using UnityEditor.SceneManagement;
+using UnityEngine.Assertions;
+using UnityEngine.SceneManagement;
+
+namespace FluffyUnderware.CurvyEditor.Generator
+{
+    public class CGGraph : EditorWindow
+    {
+
+        #region ### Static Properties ###
+
+        public static CGModuleEditorBase InPlaceEditTarget;
+        public static CGModuleEditorBase InPlaceEditInitiatedBy;
+
+        /// <summary>
+        /// Initiates an IPE session or terminates it
+        /// </summary>
+        public static void SetIPE(IExternalInput target = null, CGModuleEditorBase initiatedBy = null)
+        {
+
+            if (InPlaceEditTarget != null)
+                InPlaceEditTarget.EndIPE();
+
+            InPlaceEditInitiatedBy = initiatedBy;
+
+            if (target != null)
+            {
+                InPlaceEditTarget = initiatedBy.Graph.GetModuleEditor((CGModule)target);
+
+                if (SceneView.currentDrawingSceneView)
+                    SceneView.currentDrawingSceneView.Focus();
+
+                SyncIPE();
+                InPlaceEditTarget.BeginIPE();
+            }
+        }
+
+        /// <summary>
+        /// Sets IPE target's TRS
+        /// </summary>
+        public static void SyncIPE()
+        {
+            if (InPlaceEditInitiatedBy != null && InPlaceEditTarget != null)
+            {
+                Vector3 pos;
+                Quaternion rot;
+                Vector3 scl;
+                InPlaceEditInitiatedBy.OnIPEGetTRS(out pos, out rot, out scl);
+                InPlaceEditTarget.OnIPESetTRS(pos, rot, scl);
+            }
+        }
+
+
+        #endregion
+
+        public CurvyGenerator Generator;
+        public Dictionary<CGModule, CGModuleEditorBase> ModuleEditors = new Dictionary<CGModule, CGModuleEditorBase>();
+        public Dictionary<System.Type, Color> TypeColors = new Dictionary<System.Type, Color>();
+
+
+        List<CGModule> mModules;
+        public List<CGModule> Modules
+        {
+            get
+            {
+                if (mModules == null)
+                    mModules = new List<CGModule>(Generator.Modules.ToArray());
+                return mModules;
+            }
+            set
+            {
+                mModules = value;
+            }
+        }
+
+        internal CanvasState Canvas;
+        public CanvasSelection Sel;
+        internal CanvasUI UI;
+        // Statusbar
+        public DTStatusbar StatusBar = new DTStatusbar();
+        const int mStatusbarHeight = 20;
+        int mModuleCount;
+        bool mDoRepaint;
+        /// <summary>
+        /// True if the user clicked on the Reorder button
+        /// </summary>
+        bool mDoReorder;
+        readonly AnimBool mShowDebug = new AnimBool();
+
+        Event EV { get { return Event.current; } }
+        public bool LMB { get { return EV.type == EventType.MouseDown && EV.button == 0; } }
+        public bool RMB { get { return EV.type == EventType.MouseDown && EV.button == 1; } }
+
+
+
+
+        CGModule editTitleModule;
+
+        void OnSelectionChange()
+        {
+            CurvyGenerator gen = null;
+            List<CGModule> mod = DTSelection.GetAllAs<CGModule>();
+            if (mod.Count > 0)
+                gen = mod[0].Generator;
+            if (gen == null)
+                gen = DTSelection.GetAs<CurvyGenerator>();
+            if (gen != null && (Generator == null || gen != Generator))
+            {
+                Initialize(gen);
+                Repaint();
+            }
+            else
+                if (mod.Count > 0 && CurvyProject.Instance.CGSynchronizeSelection)
+            {
+                Sel.SetSelectionTo(mod);
+                Canvas.FocusSelection();
+                Repaint();
+            }
+
+            //OnSelectionChange is called when a selected module is deleted (from the hierarchy for example)
+            Sel.SelectedModules.RemoveAll(m => m == null);
+        }
+
+        internal static CGGraph Open(CurvyGenerator generator)
+        {
+            generator.Initialize(true);
+            CGGraph win = EditorWindow.GetWindow<CGGraph>("", true);
+            win.Initialize(generator);
+            win.wantsMouseMove = true;
+            win.autoRepaintOnSceneChange = true;
+            return win;
+        }
+
+        public void Initialize(CurvyGenerator generator)
+        {
+            destroyEditors();
+            if (generator)
+            {
+                mShowDebug.speed = 3;
+                mShowDebug.value = generator.ShowDebug;
+                mShowDebug.valueChanged.RemoveAllListeners();
+                mShowDebug.valueChanged.AddListener(Repaint);
+#if UNITY_5_0 || UNITY_4_6
+                title=generator.name;
+#else
+                titleContent.text = generator.name;
+#endif
+                Generator = generator;
+                Generator.ArrangeModules();
+                Sel.Clear();
+                Show();
+                if (Generator.Modules.Count == 0)
+                    StatusBar.SetInfo("Welcome to the Curvy Generator! Right click or drag a CurvySpline on the canvas to get started!", "", 10);
+                else
+                    StatusBar.SetMessage(Generator.Modules.Count.ToString() + " modules loaded!", "", MessageType.None, 3);
+            }
+        }
+
+        void OnDestroy()
+        {
+            destroyEditors();
+            Resources.UnloadUnusedAssets();
+        }
+
+        void OnDisable()
+        {
+            SceneView.duringSceneGui -= OnSceneGUI;
+
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            EditorApplication.pauseStateChanged -= onPauseStateChanged;
+            SetIPE();
+            EditorApplication.update -= onUpdate;
+            Undo.undoRedoPerformed -= OnUndoRedo;
+        }
+
+        void OnEnable()
+        {
+            Canvas = new CanvasState(this);
+            UI = new CanvasUI(this);
+            Sel = new CanvasSelection(this);
+            loadTypeColors();
+            SceneView.duringSceneGui -= OnSceneGUI;
+            SceneView.duringSceneGui += OnSceneGUI;
+
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            EditorApplication.pauseStateChanged -= onPauseStateChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            EditorApplication.pauseStateChanged += onPauseStateChanged;
+            EditorApplication.update -= onUpdate;
+            EditorApplication.update += onUpdate;
+
+            autoRepaintOnSceneChange = true;
+            wantsMouseMove = true;
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            Undo.undoRedoPerformed += OnUndoRedo;
+        }
+
+        void OnUndoRedo()
+        {
+            if (Generator)
+            {
+                if (mModuleCount != Generator.GetComponentsInChildren<CGModule>().Length)
+                {
+                    Generator.Initialize(true);
+                    Generator.Initialize(false);
+                    Initialize(Generator);
+                }
+            }
+        }
+
+        double? previousEditorTimeSinceStartup;
+
+        void onUpdate()
+        {
+            double timeSinceStartup = EditorApplication.timeSinceStartup;
+            double editorDeltaTime = previousEditorTimeSinceStartup.HasValue == false ? 0 : timeSinceStartup - previousEditorTimeSinceStartup.Value;
+            previousEditorTimeSinceStartup = timeSinceStartup;
+
+            Canvas.UpdateScrollingAnimation(editorDeltaTime);
+
+            /* THIS CAUSES NullRefException when rendering ReorderableList's:
+            if (EditorApplication.isCompiling)
+            {
+                var eds = new List<CGModuleEditorBase>(ModuleEditors.Values);
+                for (int i = eds.Count - 1; i >= 0; i--)
+                    Editor.DestroyImmediate(eds[i]);
+                ModuleEditors.Clear();
+            }*/
+        }
+
+        void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            OnStateChanged();
+        }
+
+        void onPauseStateChanged(PauseState state)
+        {
+            OnStateChanged();
+        }
+
+        void OnStateChanged()
+        {
+            destroyEditors();
+            if (!Generator && Selection.activeGameObject)
+            {
+                Initialize(Selection.activeGameObject.GetComponent<CurvyGenerator>());
+                Repaint();
+            }
+        }
+
+        void OnSceneGUI(SceneView sceneView)
+        {
+            if (!Generator)
+                return;
+            for (int i = 0; i < Modules.Count; i++)
+            {
+                CGModule mod = Modules[i];
+                if (mod != null && mod.IsInitialized && mod.IsConfigured && mod.Active)
+                {
+                    CGModuleEditorBase ed = GetModuleEditor(mod);
+                    ed.OnModuleSceneGUI();
+                    if (Generator.ShowDebug && ed.ShowDebugVisuals)
+                        ed.OnModuleSceneDebugGUI();
+                }
+            }
+        }
+
+        Vector2 deltaAccu;
+
+        private List<object> selectedObjectsCache1 = new List<object>();
+        private List<object> selectedObjectsCache2 = new List<object>();
+
+        void OnGUI()
+        {
+
+            mDoRepaint = false;
+            if (!Generator)
+                return;
+            if (!Generator.IsInitialized)
+            {
+                Generator.Initialize();
+            }
+
+
+            Modules = new List<CGModule>(Generator.Modules.ToArray());
+            mModuleCount = Modules.Count; // store count to be checked in window GUI
+
+            if (!Application.isPlaying && !Generator.IsInitialized)
+                Repaint();
+
+            DrawToolbar();
+            Canvas.SetClientRect(0, GUILayoutUtility.GetLastRect().yMax, 0, mStatusbarHeight);
+
+            // Scrollable Canvas
+            if (Canvas.IsScrollValueAnimating)
+                GUI.BeginScrollView(Canvas.ClientRect, Canvas.ScrollValue, Canvas.CanvasRect);
+            else
+                Canvas.ScrollValue = GUI.BeginScrollView(Canvas.ClientRect, Canvas.ScrollValue, Canvas.CanvasRect);
+
+
+            // render background
+            DTGUI.PushColor(Color.black.SkinAwareColor(true));
+            GUI.Box(Canvas.ViewPort, "");
+            DTGUI.PopColor();
+
+#if CURVY_DEBUG
+
+            GUILayout.BeginArea(Canvas.ViewPort);
+            GUILayout.Label("Canvas ClientRect: " + Canvas.ClientRect);
+            GUILayout.Label("Canvas Rect: " + Canvas.CanvasRect);
+            GUILayout.Label("Canvas Scroll: " + $" {Canvas.ScrollValue}/{Canvas.ScrollTarget} Speed {Canvas.ScrollSpeed}");
+            GUILayout.Label("Canvas ViewPort: " + Canvas.ViewPort);
+
+            GUILayout.Label("Mouse: " + EV.mousePosition);
+            //GUILayout.Label("IsWindowDrag: " + Canvas.IsWindowDrag);
+            GUILayout.Label("IsSelectionDrag: " + Canvas.IsSelectionRectDrag);
+            GUILayout.Label("IsLinkDrag: " + Canvas.IsLinkDrag);
+            GUILayout.Label("IsCanvasDrag: " + Canvas.IsCanvasDrag);
+            GUILayout.Label("IsModuleDrag: " + Canvas.IsModuleDrag);
+            GUILayout.Label("MouseOverModule: " + Canvas.MouseOverModule);
+            GUILayout.Label("MouseOverCanvas: " + Canvas.IsMouseOverCanvas);
+            GUILayout.Label("SelectedLink: " + Sel.SelectedLink);
+            GUILayout.Label("Selected Module: " + Sel.SelectedModule);
+            GUILayout.EndArea();
+#endif
+
+            if (CurvyProject.Instance.CGShowHelp)
+            {
+                Rect r = new Rect(Canvas.ViewPort);
+                r.x = r.width - 230;
+                r.y = 10;
+                r.width = 220;
+                r.height = 240;
+
+                GUILayout.BeginArea(r, GUI.skin.box);
+                GUI.Label(new Rect(10, -2, r.width, r.height),
+@"<b>General:</b>
+
+  <b>RMB</b>               Contextual menu
+  <b>MMB/Space</b> Drag canvas
+  <b>Alt</b>                   Hold to snap to grid
+  <b>Del</b>                  Delete selection
+
+
+<b>Add Modules:</b>
+
+  - <b>Drag & Drop</b> objects (mesh,
+      spline, prefab,...) to create
+      associated input module
+  - Through the <b>contextual menu</b>
+  - Hold <b>Ctrl</b> while releasing a
+      link to create & connect", DTStyles.HtmlLabel);
+
+                GUILayout.EndArea();
+            }
+
+            DrawLinks();
+
+            // Init and early catch some events
+            Canvas.BeginGUI();
+
+            DrawModules();
+
+            Canvas.EndGUI();
+
+            // Draw Selection
+
+            DTGUI.PushBackgroundColor(Color.white);//.SkinAwareColor());
+            foreach (CGModule mod in Sel.SelectedModules)
+            {
+                Rect selectionHighlightRectangle = mod.Properties.Dimensions.ScaleBy(2);
+#pragma warning disable 162
+                {
+                    selectionHighlightRectangle.x -= 1;
+                    selectionHighlightRectangle.y -= 1;
+                    selectionHighlightRectangle.width += 2;
+                    selectionHighlightRectangle.height += 1;
+                }
+#pragma warning restore 162
+                GUI.Box(selectionHighlightRectangle, "", CurvyStyles.RoundRectangle);
+            }
+            DTGUI.PopBackgroundColor();
+
+            // Keep dragged Module in view and handle multiselection move
+            if (Canvas.IsModuleDrag && !DTGUI.IsLayout)
+            {
+                CGModule selectedModule = Canvas.Sel.SelectedModule;
+
+#if CURVY_SANITY_CHECKS_PRIVATE
+                if (selectedModule == null)
+                    Debug.LogError($"Custom assertion is false: selectedModule != null");
+#endif
+                Vector2 mouseDelta = EV.delta;
+                deltaAccu += EV.delta;
+                if (EV.alt)
+                {
+                    mouseDelta = deltaAccu.Snap(CurvyProject.Instance.CGGraphSnapping);
+                    if (mouseDelta == deltaAccu)
+                        mouseDelta = Vector2.zero;
+                }
+                if (Sel.SelectedModules.Count > 1)
+                {
+                    foreach (CGModule mod in Sel.SelectedModules)
+                    {
+                        mod.Properties.Dimensions.position += mouseDelta;
+                    }
+                    if (!EV.alt || mouseDelta != Vector2.zero)
+                        deltaAccu = Vector2.zero;
+                }
+                CGModule focusedModule;
+                if (Canvas.MouseOverModule && Sel.SelectedModules.Contains(Canvas.MouseOverModule))
+                    focusedModule = Canvas.MouseOverModule;
+                else
+                    focusedModule = selectedModule;
+
+                if (focusedModule)
+                {
+                    Vector2 scrollDelta = Canvas.GetFocusDelta(focusedModule);
+                    Canvas.SetScrollTarget(Canvas.ScrollValue + scrollDelta, Mathf.Max(60f, scrollDelta.magnitude * 20f));
+                }
+            }
+
+            // Linking in progress?
+            if (Canvas.IsLinkDrag)
+            {
+                Texture2D linkstyle = (Canvas.LinkDragFrom.OnRequestModule != null) ? CurvyStyles.RequestLineTexture : CurvyStyles.LineTexture;
+                Vector2 startPosition = Canvas.LinkDragFrom.Origin;
+                Vector2 endPosition = EV.mousePosition;
+
+                CGGraph.GetLinkBezierTangents(
+                    startPosition,
+                    endPosition,
+                    out Vector2 startTangent,
+                    out Vector2 endTangent);
+
+                Handles.DrawBezier(startPosition, endPosition, startTangent, endTangent, Color.white, linkstyle, 2);
+            }
+
+            GUI.EndScrollView(true);
+
+            // Selection
+            if (Canvas.IsSelectionRectDrag)
+                DrawSelectionRect();
+
+            // Statusbar
+            DrawStatusbar();
+
+            // IPE
+            SyncIPE();
+
+            bool selectionHasChanged;
+            {
+                Canvas.Sel.FillWithSelectedObjects(selectedObjectsCache1);
+                selectionHasChanged = selectedObjectsCache1.SequenceEqual(selectedObjectsCache2);
+                //swap both lists
+                (selectedObjectsCache2, selectedObjectsCache1) = (selectedObjectsCache1, selectedObjectsCache2);
+            }
+
+            mDoRepaint = mDoRepaint || Canvas.IsCanvasDrag || Canvas.IsLinkDrag || Canvas.IsSelectionRectDrag || EV.type == EventType.MouseMove || mShowDebug.isAnimating || Canvas.IsScrollValueAnimating || selectionHasChanged;
+
+
+            // Disable Title edit mode?
+            if (editTitleModule != null)
+            {
+                if ((EV.isKey && (EV.keyCode == KeyCode.Escape || EV.keyCode == KeyCode.Return)) ||
+                    Sel.SelectedModule != editTitleModule
+                    )
+                {
+                    editTitleModule = null;
+                    //GUI.FocusControl("");
+                    mDoRepaint = true;
+                }
+            }
+
+            if (mDoReorder)
+                Generator.ReorderModules();
+            if (mDoRepaint)
+                Repaint();
+        }
+
+
+
+        void DrawModules()
+        {
+            //TODO at some point this method should be reworked to distinguish between what should be called when Event.current.type == EventType.Layout and what should be called otherwise
+            const int refreshHighlightSize = 9;
+
+            //When modules are culled, they are not rendered (duh) and thus their height is not updated. This is ok as long as the height is constant. When there is some module expanding/collapsing, the height should change. In those cases, we disable the culling (for all modules for implementation simplicity sake, could be optimized) so the height is updated, so that the modules reordering code can work based on the actual height, and not the preculling one, which was leading to bad reordering results.
+            bool animationIsHappening = mShowDebug.isAnimating || Modules.Exists(m => m.Properties.Expanded.isAnimating);
+
+            CGModule curSel = Sel.SelectedModule;
+            // Begin drawing Module Windows
+            BeginWindows();
+            for (int i = 0; i < Modules.Count; i++)
+            {
+                CGModule mod = Modules[i];
+                if (mod != null)
+                {
+                    mod.Properties.Dimensions.width = Mathf.Max(mod.Properties.Dimensions.width, mod.Properties.MinWidth);
+
+                    //This is based on the condition at which mod.Properties.Expanded.target is modified in OnModuleWindowCB
+                    bool autoModuleDetailsWillMakeModuleAnimate = DTGUI.IsLayout && CurvyProject.Instance.CGAutoModuleDetails && mod.Properties.Expanded.target != (mod == curSel);
+
+                    // Render title
+                    string title = mod.ModuleName;
+                    if (!mod.IsConfigured)
+                        title = string.Format("<color={0}>{1}</color>", new Color(1, 0.2f, 0.2f).SkinAwareColor().ToHtml(), mod.ModuleName);
+                    //"<color=#ff3333>" + mod.ModuleName + "</color>"; 
+                    else if (mod is IOnRequestProcessing)
+                        title = string.Format("<color={0}>{1}</color>", CurvyStyles.IOnRequestProcessingTitleColor.SkinAwareColor().ToHtml(), mod.ModuleName);
+
+#if CURVY_DEBUG
+                    title = mod.UniqueID + ":" + title;
+#endif
+
+                    // the actual window
+                    Vector2 oldPos = mod.Properties.Dimensions.position;
+
+                    bool shouldDraw;
+                    {
+                        //Ok, shit gets complicated here. The idea was to not draw modules that are out of the screen, but for reasons I don't fully grasp, the height can be 0, which fucks up the boundaries test.
+                        //The height is set to 0 in the line just before calling GUILayout.Window, with the apparent goal for that method to update the height, but this update does not happen all the time. It happens when the OnGUI method is called following an Event of type Repaint, but does not happen when is called following an Event of type Layout.
+                        //And if you remove the code setting height to 0, the height of the module is not updated correctly
+                        if (mod.Properties.Dimensions.height == 0 || animationIsHappening || autoModuleDetailsWillMakeModuleAnimate)
+                            shouldDraw = true;
+                        else
+                        {
+                            Rect testedBoundaries = mod.Properties.Dimensions.ScaleBy(refreshHighlightSize);
+                            shouldDraw = Canvas.ViewPort.Contains(testedBoundaries.min) || Canvas.ViewPort.Overlaps(testedBoundaries);
+                        }
+                    }
+
+                    Rect newWindowRect;
+                    if (shouldDraw)
+                    {
+                        mod.Properties.Dimensions.height = 0; // will be set by GUILayout.Window
+                        newWindowRect = GUILayout.Window(i, mod.Properties.Dimensions, OnModuleWindowCB, title, CurvyStyles.ModuleWindow);
+                    }
+                    else
+                    {
+                        UpdateLinks(mod);
+                        newWindowRect = mod.Properties.Dimensions;
+                    }
+
+                    if (!Application.isPlaying && oldPos != newWindowRect.position)
+                        EditorSceneManager.MarkAllScenesDirty();
+
+                    if (Sel.SelectedModules.Count > 1) // Multi-Module move in OnGUI()
+                    {
+                        mod.Properties.Dimensions = newWindowRect.SetPosition(oldPos);
+                    }
+                    else
+                    {
+                        if (EV.alt && Canvas.IsModuleDrag && Sel.SelectedModule == mod)
+                            newWindowRect.position = newWindowRect.position.Snap(CurvyProject.Instance.CGGraphSnapping);
+                        mod.Properties.Dimensions = newWindowRect;
+                    }
+
+
+
+                    // Debugging
+                    double lastUpdateDelta = (System.DateTime.Now - mod.DEBUG_LastUpdateTime).TotalMilliseconds;
+                    if (lastUpdateDelta < 1500)
+                    {
+                        float alpha = Mathf.SmoothStep(1, 0, (float)lastUpdateDelta / 1500f);
+                        DTGUI.PushBackgroundColor(new Color(0, 1, 0, alpha));
+                        GUI.Box(mod.Properties.Dimensions.ScaleBy(refreshHighlightSize), "", CurvyStyles.GlowBox);
+                        DTGUI.PopBackgroundColor();
+                        Repaint();
+                    }
+
+                }
+            }
+            EndWindows();
+
+            //update canvas rect to include any possible module's rectangle change (position and size)
+            if (EV.type != EventType.Layout)
+                //The following line is ignored in EventType.Layout, because the call to GUILayout.Window in that event, call on which we rely on to give us the correct module's rectangle, does not update the height. Maybe because that method is not supposed to be called in event layout, and maybe supposed to be called only in event repaint, but I am not going to do such drastic changes to this code now. This is a fight for another time
+                Canvas.ComputeCanvasRectangle(Modules);
+
+            //focus selection
+            if (Sel.SelectedModule != curSel)
+                Canvas.FocusSelection();
+        }
+
+        void DrawSelectionRect()
+        {
+            Vector2 p = Canvas.SelectionRectStart;
+            Vector2 p2 = Canvas.ViewPortMousePosition;
+            Vector3[] verts = new Vector3[4]
+            {
+                new Vector3(p.x,p.y,0),
+                new Vector3(p2.x,p.y,0),
+                new Vector3(p2.x,p2.y,0),
+                new Vector3(p.x,p2.y,0)
+            };
+            Handles.DrawSolidRectangleWithOutline(verts, new Color(.5f, .5f, .5f, 0.1f), Color.white);
+        }
+
+        void OnModuleWindowCB(int id)
+        {
+            // something happened in the meantime?
+            if (id >= Modules.Count || mModuleCount != Modules.Count)
+                return;
+            CGModule mod = Modules[id];
+
+            //if (EV.type != EventType.Repaint && EV.type != EventType.Layout)
+            //    Debug.Log("OnModuleWindowCB()  " + EV.type + "  " + Canvas.IsMouseOverCanvas);
+            if (EV.type == EventType.MouseDown && EV.button != 2 && !Sel.SelectedModules.Contains(mod)
+                /*&& Canvas.IsCanvasDrag == false && Canvas.IsLinkDrag == false*/)
+                Sel.SetSelectionTo(Modules[id]);
+
+            Rect winRect = mod.Properties.Dimensions;
+
+            // Draw Title Buttons
+            // Enabled
+            EditorGUI.BeginChangeCheck();
+            mod.Active = GUI.Toggle(new Rect(2, 2, 16, 16), mod.Active, "");
+            if (EditorGUI.EndChangeCheck())
+                EditorUtility.SetDirty(Generator);
+
+            //Edit Title & Color
+            if (editTitleModule == mod)
+            {
+                GUI.SetNextControlName("editTitle" + id.ToString());
+                mod.ModuleName = GUI.TextField(new Rect(30, 5, winRect.width - 120, 16), mod.ModuleName);
+                mod.Properties.BackgroundColor = EditorGUI.ColorField(new Rect(winRect.width - 70, 5, 32, 16), mod.Properties.BackgroundColor);
+            }
+
+
+            if (GUI.Button(new Rect(winRect.width - 32, 6, 16, 16), new GUIContent(CurvyStyles.EditTexture, "Rename"), CurvyStyles.BorderlessButton))
+            {
+                editTitleModule = mod;
+                //is this needed?
+                Sel.SetSelectionTo(mod);
+                EditorGUI.FocusTextInControl("editTitle" + id.ToString());
+            }
+
+            // Help
+            if (GUI.Button(new Rect(winRect.width - 16, 6, 16, 16), new GUIContent(CurvyStyles.HelpTexture, "Help"), CurvyStyles.BorderlessButton))
+            {
+                string url = DTUtility.GetHelpUrl(mod);
+                if (!string.IsNullOrEmpty(url))
+                    Application.OpenURL(url);
+            }
+
+
+            // Check errors
+            if (mod.CircularReferenceError)
+                EditorGUILayout.HelpBox("Circular Reference", MessageType.Error);
+            // Draw Slots
+            DTGUI.PushColor(mod.Properties.BackgroundColor.SkinAwareColor(true));
+            GUILayout.Space(1);
+            EditorGUILayout.BeginVertical(CurvyStyles.ModuleWindowSlotBackground);
+            DTGUI.PopColor();
+            UpdateLinks(mod);
+            OnModuleWindowSlotGUI(mod);
+            EditorGUILayout.EndVertical();
+
+            CGModuleEditorBase ed = GetModuleEditor(mod);
+
+            if (ed && ed.target != null)
+            {
+
+                if (EditorGUILayout.BeginFadeGroup(mShowDebug.faded))
+                    ed.OnInspectorDebugGUIINTERNAL(Repaint);
+                EditorGUILayout.EndFadeGroup();
+
+                // Draw Module Options
+
+                //I don't see the need for this, but I am not familiar enough with CG editor's code to feel confident to remove it
+                mod.Properties.Expanded.valueChanged.RemoveListener(Repaint);
+                mod.Properties.Expanded.valueChanged.AddListener(Repaint);
+
+                if (!CurvyProject.Instance.CGAutoModuleDetails)
+                    mod.Properties.Expanded.target = GUILayout.Toggle(mod.Properties.Expanded.target, new GUIContent(mod.Properties.Expanded.target ? CurvyStyles.CollapseTexture : CurvyStyles.ExpandTexture, "Show Details"), CurvyStyles.ShowDetailsButton);
+
+                // === Module Details ===
+                // Handle Auto-Folding
+                if (DTGUI.IsLayout && CurvyProject.Instance.CGAutoModuleDetails)
+                    mod.Properties.Expanded.target = (mod == Sel.SelectedModule);
+
+                if (EditorGUILayout.BeginFadeGroup(mod.Properties.Expanded.faded))
+                {
+                    EditorGUIUtility.labelWidth = (mod.Properties.LabelWidth);
+                    // Draw Inspectors using Modules Background color
+                    DTGUI.PushColor(ed.Target.Properties.BackgroundColor.SkinAwareColor(true));
+                    EditorGUILayout.BeginVertical(CurvyStyles.ModuleWindowBackground);
+                    DTGUI.PopColor();
+
+                    ed.RenderGUI(true);
+                    if (ed.NeedRepaint)
+                        mDoRepaint = true;
+                    GUILayout.Space(2);
+                    EditorGUILayout.EndVertical();
+                }
+                EditorGUILayout.EndFadeGroup();
+
+
+            }
+
+            // Make it dragable
+            GUI.DragWindow(new Rect(0, 0, winRect.width, CurvyStyles.ModuleWindowTitleHeight));
+
+        }
+
+        void OnModuleWindowSlotGUI(CGModule module)
+        {
+
+            int i = 0;
+
+            while (module.Input.Count > i || module.Output.Count > i)
+            {
+                GUILayout.BeginHorizontal();
+
+                if (module.Input.Count > i)
+                {
+                    CGModuleInputSlot slot = module.Input[i];
+                    Color linkDataTypeColor = getTypeColor(slot.Info.DataTypes);
+                    if (Canvas.IsLinkDrag && !slot.CanLinkTo(Canvas.LinkDragFrom))
+                        linkDataTypeColor = new Color(0.2f, 0.2f, 0.2f).SkinAwareColor(true);
+                    DTGUI.PushColor(linkDataTypeColor);
+                    GUILayout.Box("<", CurvyStyles.Slot);
+                    DTGUI.PopColor();
+                    string postfix = "";
+                    if (slot.Info.Array && slot.Info.ArrayType == SlotInfo.SlotArrayType.Normal)
+                        postfix = (slot.LastDataCountINTERNAL > 0) ? "[" + slot.LastDataCountINTERNAL.ToString() + "]" : "[]";
+                    GUILayout.Label(new GUIContent(ObjectNames.NicifyVariableName(slot.Info.DisplayName) + postfix, slot.Info.Tooltip), CurvyStyles.GetSlotLabelStyle(slot));
+
+                    // LinkDrag?
+                    if (Canvas.IsLinkDrag)
+                    {
+                        // If ending drag over dropzone, create static link
+                        if (EV.type == EventType.MouseUp && slot.DropZone.Contains(EV.mousePosition) && slot.CanLinkTo(Canvas.LinkDragFrom))
+                            finishLink(slot);
+                    }
+                    // Clicking on Dropzone to pick existing link
+                    else if (LMB && slot.Count == 1 && slot.DropZone.Contains(EV.mousePosition))
+                    {
+                        CGModuleOutputSlot linkedOutSlot = slot.SourceSlot();
+                        linkedOutSlot.UnlinkFrom(slot);
+                        EditorUtility.SetDirty(slot.Module);
+                        startLinkDrag(linkedOutSlot);
+                        GUIUtility.ExitGUI();
+                    }
+                }
+
+                if (module.Output.Count > i)
+                {
+                    CGModuleOutputSlot slot = module.Output[i];
+                    string postfix = "";
+                    if (slot.Info.Array && slot.Info.ArrayType == SlotInfo.SlotArrayType.Normal)
+                        postfix = (slot.Data != null && slot.Data.Length > 1) ? "[" + slot.Data.Length.ToString() + "]" : "";
+
+                    GUILayout.Label(new GUIContent(ObjectNames.NicifyVariableName(slot.Info.DisplayName) + postfix, slot.Info.Tooltip), CurvyStyles.GetSlotLabelStyle(slot));
+                    DTGUI.PushColor(getTypeColor(slot.Info.DataTypes));
+                    GUILayout.Box(">", CurvyStyles.Slot);
+                    DTGUI.PopColor();
+                    // Debug
+                    /*
+                    if (Generator.ShowDebug)
+                    {
+                        GUI.enabled = slot.Data != null && slot.Data.Length>0;
+                        if (GUILayout.Button(new GUIContent(CurvyStyles.DebugTexture, "Show Dump"), CurvyStyles.SmallButton, GUILayout.Width(16), GUILayout.Height(16)))
+                            DTDebugWindow.Open(slot.Data[0].GetType().Name + ":", slot.Data[0].ToDumpString());
+                        GUI.enabled = true;
+                    }
+                    */
+                    // Start Linking?
+                    if (LMB && !Canvas.IsSelectionRectDrag && slot.DropZone.Contains(EV.mousePosition))
+                    {
+                        startLinkDrag(slot);
+                    }
+
+                }
+                GUILayout.EndHorizontal();
+                i++;
+            }
+
+
+        }
+
+        void DrawToolbar()
+        {
+            GUILayout.BeginHorizontal(CurvyStyles.Toolbar);
+            // Clear
+            if (GUILayout.Button(new GUIContent(CurvyStyles.DeleteTexture, "Clear modules"), EditorStyles.miniButton) && EditorUtility.DisplayDialog("Clear", "Clear graph?", "Yes", "No"))
+            {
+                Sel.Clear();
+                Generator.Clear();
+                Repaint();
+                GUIUtility.ExitGUI();
+            }
+
+            GUILayout.Space(10);
+
+            // clear outputs
+            if (GUILayout.Button(new GUIContent(CurvyStyles.DeleteBTexture, "Clear output"), EditorStyles.miniButton))
+            {
+                bool associatedPrefabWasModified;
+                if (Generator.DeleteAllOutputManagedResources(out associatedPrefabWasModified) && Application.isPlaying == false)
+                    if (PrefabStageUtility.GetPrefabStage(Generator.gameObject) == null) //if not editing the prefab in prefab mode
+                        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+
+                if (associatedPrefabWasModified)
+                    EditorUtility.DisplayDialog("Prefab asset modified", "The prefab asset associated with the prefab instance containing this Curvy Generator was modified.\n\nThis was done in order to allow the operation you initiated (Clear Output). You might need to apply the operation again.", "Ok");
+            }
+
+            // save resources to scene
+            if (GUILayout.Button(new GUIContent(CurvyStyles.SaveResourcesTexture, "Save output to scene"), EditorStyles.miniButton))
+            {
+                Generator.SaveAllOutputManagedResources();
+            }
+
+            GUILayout.Space(10);
+
+            // Refresh
+            if (GUILayout.Button(new GUIContent(CurvyStyles.RefreshTexture, "Refresh"), EditorStyles.miniButton, GUILayout.ExpandWidth(false)) && !DTGUI.IsLayout)
+            {
+                Modules = null;
+                Generator.Refresh(true);
+                Repaint();
+                GUIUtility.ExitGUI();
+            }
+
+            // reorder
+            mDoReorder = GUILayout.Button(new GUIContent(CurvyStyles.ReorderTexture, "Reorder modules"), EditorStyles.miniButton, GUILayout.ExpandWidth(false)) && !DTGUI.IsLayout;
+
+            // Debug
+            EditorGUI.BeginChangeCheck();
+            mShowDebug.target = GUILayout.Toggle(mShowDebug.target, new GUIContent(CurvyStyles.DebugTexture, "Debug"), EditorStyles.miniButton);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Generator.ShowDebug = mShowDebug.target;
+                SceneView.RepaintAll();
+            }
+
+            GUILayout.Space(10);
+
+
+            // Expanded/Collapsed actions
+            CurvyProject.Instance.CGAutoModuleDetails = GUILayout.Toggle(CurvyProject.Instance.CGAutoModuleDetails, new GUIContent(CurvyStyles.CGAutoFoldTexture, "Auto-Expand selected module"), EditorStyles.miniButton);
+            if (GUILayout.Button(new GUIContent(CurvyStyles.ExpandTexture, "Expand all"), EditorStyles.miniButton))
+                CGEditorUtility.SetModulesExpandedState(true, Generator.Modules.ToArray());
+            if (GUILayout.Button(new GUIContent(CurvyStyles.CollapseTexture, "Collapse all"), EditorStyles.miniButton))
+                CGEditorUtility.SetModulesExpandedState(false, Generator.Modules.ToArray());
+            // Sync Selection
+            CurvyProject.Instance.CGSynchronizeSelection = GUILayout.Toggle(CurvyProject.Instance.CGSynchronizeSelection, new GUIContent(CurvyStyles.SynchronizeTexture, "Synchronize Selection"), EditorStyles.miniButton);
+
+            // Save Template
+            GUILayout.Space(10);
+            GUI.enabled = Sel.SelectedModule != null;
+            if (GUILayout.Button(new GUIContent(CurvyStyles.AddTemplateTexture, "Save Selection as Template"), EditorStyles.miniButton))
+                TemplateWizard.Open(Sel.SelectedModules, UI);
+
+            GUI.enabled = true;
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(new GUIContent(CurvyStyles.TexGridSnap, "Snap Grid Size\n(Hold Alt while dragging to snap)"));
+            CurvyProject.Instance.CGGraphSnapping = (int)GUILayout.HorizontalSlider(CurvyProject.Instance.CGGraphSnapping, 1, 20, GUILayout.Width(60));
+            GUILayout.Label(CurvyProject.Instance.CGGraphSnapping.ToString(), GUILayout.Width(20));
+            CurvyProject.Instance.CGShowHelp = GUILayout.Toggle(CurvyProject.Instance.CGShowHelp, new GUIContent(CurvyStyles.HelpTexture, "Show Help"), EditorStyles.miniButton, GUILayout.Height(20));
+            GUILayout.EndHorizontal();
+        }
+
+        void DrawStatusbar()
+        {
+            Rect r = new Rect(-1, position.height - mStatusbarHeight, 201, mStatusbarHeight - 1);
+            // Performance
+            EditorGUI.HelpBox(r, string.Format("Exec. Time (Avg): {0:0.###} ms", Generator.DEBUG_ExecutionTime.AverageMS), MessageType.None);
+            // Message
+            if (StatusBar.Render(new Rect(200, position.height - mStatusbarHeight, position.width, mStatusbarHeight - 1)))
+                mDoRepaint = true;
+        }
+
+        void loadTypeColors()
+        {
+            TypeColors.Clear();
+
+            IEnumerable<Type> loadedTypes = TypeCache.GetTypesDerivedFrom(typeof(CGData));
+            foreach (Type t in loadedTypes)
+            {
+                object[] ai = t.GetCustomAttributes(typeof(CGDataInfoAttribute), true);
+                if (ai.Length > 0)
+                {
+                    TypeColors.Add(t, ((CGDataInfoAttribute)ai[0]).Color);
+                }
+            }
+        }
+
+        public void destroyEditors()
+        {
+            List<CGModuleEditorBase> ed = new List<CGModuleEditorBase>(ModuleEditors.Values);
+            for (int i = ed.Count - 1; i >= 0; i--)
+                DestroyImmediate(ed[i]);
+            ModuleEditors.Clear();
+            InPlaceEditTarget = null;
+            InPlaceEditInitiatedBy = null;
+        }
+
+        internal CGModuleEditorBase GetModuleEditor([NotNull] CGModule module)
+        {
+            CGModuleEditorBase ed;
+            if (!ModuleEditors.TryGetValue(module, out ed))
+            {
+                ed = Editor.CreateEditor(module) as CGModuleEditorBase;
+                if (ed)
+                {
+                    ed.Graph = this;
+                    ModuleEditors.Add(module, ed);
+                }
+                else
+                    DTLog.LogError("[Curvy] Curvy Generator: Missing editor script for module '" + module.GetType().Name + "' !", module);
+            }
+
+            return ed;
+        }
+
+        Color getTypeColor(System.Type[] type)
+        {
+            Color c = Color.white; ;
+            if (type.Length == 1)
+                TypeColors.TryGetValue(type[0], out c);
+
+            return c;//.SkinAwareColor();
+        }
+
+        #region Links
+
+        public const int LinkSelectionDistance = 6;
+
+        /// <summary>
+        /// Given a link's start and end positions, you get the Bezier tangents of the link at those positions
+        /// </summary>
+        public static void GetLinkBezierTangents(Vector2 startPosition, Vector2 endPosition, out Vector2 startTangent, out Vector2 endTangent)
+        {
+            float deltaX = Mathf.Abs(endPosition.x - startPosition.x);
+            float deltaY = Mathf.Abs(endPosition.y - startPosition.y);
+
+            float xInfluence = deltaX / 2;
+            //when there is a big delta in y, a small delta in x, and multiple links going to the same module, the links are too close to distinguish. I "bump" the links (by increasing the tangent) in those cases so that they are distinguishable near the modules.
+            float yInfluence = 100f * Mathf.Min(1000f, deltaY) / 1000f;
+
+            Vector2 tangent = new Vector2(xInfluence + yInfluence, 0);
+            startTangent = startPosition + tangent;
+            endTangent = endPosition - tangent;
+        }
+
+        void DrawLinks()
+        {
+            Rect r = new Rect();
+
+            foreach (CGModule mod in Modules)
+            {
+                //Debug.Log(mod.name + ":" + mod.Properties.Dimensions.yMin+" to "+mod.Properties.Dimensions.yMax);
+                if (mod.OutputByName != null)
+                {
+                    foreach (CGModuleOutputSlot slotOut in mod.OutputByName.Values)
+                    {
+                        Vector2 startPosition = slotOut.Origin;
+                        foreach (CGModuleSlot slotIn in slotOut.LinkedSlots)
+                        {
+                            Vector2 endPosition = slotIn.Origin;
+
+                            r.Set(startPosition.x, startPosition.y, endPosition.x - startPosition.x, endPosition.y - startPosition.y);
+                            // draw only visible lines
+                            if (Canvas.ViewPort.Overlaps(r, true))
+                            {
+                                GetLinkBezierTangents(
+                                        startPosition,
+                                        endPosition,
+                                        out Vector2 startTangent,
+                                        out Vector2 endTangent);
+
+                                if (EV.type == EventType.Repaint)
+                                {
+                                    float w = (Sel.SelectedLink != null && Sel.SelectedLink.IsBetween(slotOut, slotIn)) ? 7 : 2;
+
+                                    Color slotColor = getTypeColor(slotOut.Info.DataTypes);
+
+
+                                    if (!((CGModuleInputSlot)slotIn).InputInfo.RequestDataOnly && slotIn.OnRequestModule == null)
+                                    {
+                                        Handles.DrawBezier(startPosition,
+                                            endPosition,
+                                            startTangent,
+                                            endTangent,
+                                            slotColor,
+                                            CurvyStyles.LineTexture,
+                                            w);
+                                    }
+                                    else
+                                    {
+                                        //draw two parallel lines
+                                        Vector2 yOff = new Vector3(0, 2);
+                                        Handles.DrawBezier(startPosition + yOff,
+                                            endPosition + yOff,
+                                            startTangent + yOff,
+                                            endTangent + yOff,
+                                            slotColor,
+                                            CurvyStyles.LineTexture,
+                                            w);
+
+                                        yOff = new Vector3(0, -2);
+                                        Handles.DrawBezier(startPosition + yOff,
+                                            endPosition + yOff,
+                                            startTangent + yOff,
+                                            endTangent + yOff,
+                                            slotColor,
+                                            CurvyStyles.LineTexture,
+                                            w);
+                                    }
+                                }
+
+                                if (LMB && HandleUtility.DistancePointBezier(EV.mousePosition, startPosition, endPosition, startTangent, endTangent) <= LinkSelectionDistance)
+                                {
+                                    Sel.SetSelectionTo(slotOut.Module.GetOutputLink((CGModuleOutputSlot)slotOut, (CGModuleInputSlot)slotIn));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+
+        void UpdateLinks(CGModule module)
+        {
+
+            int i = 0;
+            float slotDropZoneHeight = 18;
+
+            while (module.Input.Count > i || module.Output.Count > i)
+            {
+                float y = CurvyStyles.ModuleWindowTitleHeight + slotDropZoneHeight * i;
+
+                if (module.Input.Count > i)
+                {
+                    CGModuleInputSlot slot = module.Input[i];
+                    slot.DropZone = new Rect(0, y, module.Properties.Dimensions.width / 2, slotDropZoneHeight);
+                    slot.Origin = new Vector2(module.Properties.Dimensions.xMin, module.Properties.Dimensions.yMin + y + slotDropZoneHeight / 2);
+                }
+
+                if (module.Output.Count > i)
+                {
+                    CGModuleOutputSlot slot = module.Output[i];
+                    slot.DropZone = new Rect(module.Properties.Dimensions.width / 2, y, module.Properties.Dimensions.width / 2, slotDropZoneHeight);
+                    slot.Origin = new Vector2(module.Properties.Dimensions.xMax, module.Properties.Dimensions.yMin + y + slotDropZoneHeight / 2);
+                }
+                i++;
+            }
+        }
+
+        #endregion
+
+        #region ### Actions ###
+
+        void startLinkDrag(CGModuleSlot slot)
+        {
+            Sel.Clear();
+            Canvas.LinkDragFrom = (CGModuleOutputSlot)slot;
+            StatusBar.SetMessage("Hold <b><Ctrl></b> to quickly create & connect a module");
+        }
+
+        void finishLink(CGModuleInputSlot target)
+        {
+            StatusBar.Clear();
+            Canvas.LinkDragFrom.LinkTo(target);
+            EditorUtility.SetDirty(target.Module);
+            if (!DTGUI.IsLayout)
+                GUIUtility.ExitGUI();
+        }
+        #endregion
+
+
+
+    }
+
+
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGGraph.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGModuleEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 2952921a87141e144bafce916291be32
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.Curvy.Generator;
+using FluffyUnderware.DevTools.Extensions;
+using FluffyUnderware.DevToolsEditor.Extensions;
+using FluffyUnderware.Curvy;
+using System.Collections.Generic;
+using System;
+using FluffyUnderware.DevToolsEditor;
+using UnityEditor.AnimatedValues;
+using UnityEngine.Events;
+using FluffyUnderware.DevTools;
+using Object = UnityEngine.Object;
+
+namespace FluffyUnderware.CurvyEditor.Generator
+{
+    public class CGModuleEditorBase : CurvyEditorBase<CGModule>
+    {
+        public CGGraph Graph { get; internal set; }
+
+        public AnimBool ShowDebugStats { get; set; }
+        public bool ShowDebugVisuals { get; set; }
+        protected bool HasDebugVisuals;
+
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            ShowDebugStats = new AnimBool(true);
+            ShowDebugStats.speed = 3;
+            HasDebugVisuals = false;
+            EndIPE();
+        }
+
+        /// <summary>
+        /// Called by the graph when an IPE session starts
+        /// </summary>
+        internal virtual void BeginIPE()
+        {
+        }
+
+        /// <summary>
+        /// Called by the graph when an IPE session ends
+        /// </summary>
+        internal virtual void EndIPE()
+        {
+        }
+
+        /// <summary>
+        /// Called for the IPE Target when the module should TRS it's IPE editor to the given values
+        /// </summary>
+        internal virtual void OnIPESetTRS(Vector3 position, Quaternion rotation, Vector3 scale) { }
+
+        /// <summary>
+        /// Called for the IPE initiator to get the TRS values for the target
+        /// </summary>
+        internal virtual void OnIPEGetTRS(out Vector3 position, out Quaternion rotation, out Vector3 scale)
+        {
+            position = Vector3.zero;
+            rotation = Quaternion.identity;
+            scale = Vector3.one;
+        }
+
+
+        /// <summary>
+        /// Scene View GUI
+        /// </summary>
+        /// <remarks>Called only if the module is initialized and configured</remarks>
+        public virtual void OnModuleSceneGUI()
+        {
+        }
+
+        /// <summary>
+        /// Scene View Debug GUI
+        /// </summary>
+        /// <remarks>Called only when Show Debug Visuals is activated</remarks>
+        public virtual void OnModuleSceneDebugGUI()
+        {
+        }
+        /// <summary>
+        /// Inspector Debug GUI
+        /// </summary>
+        /// <remarks>Called only when Show Debug Values is activated </remarks>
+        public virtual void OnModuleDebugGUI()
+        {
+        }
+
+        protected override void OnCustomInspectorGUI()
+        {
+            base.OnCustomInspectorGUI();
+            for (int m = 0; m < Target.UIMessages.Count; m++)
+                EditorGUILayout.HelpBox(Target.UIMessages[m], MessageType.Warning);
+        }
+
+        protected override void OnReadNodes()
+        {
+            base.OnReadNodes();
+        }
+
+        public override void OnInspectorGUI()
+        {
+            //With the new prefab system (Unity 2018.3) prefabs don't show inspector, and when opening prefab editor, its objects are of type PrefabAssetType.NotAPrefab, so no way to know if its from prefab or not?
+
+            if (Target)
+            {
+                if (!Target.IsInitialized)
+                {
+                    Target.Initialize();
+                }
+                DTGroupNode slotSection;
+
+                if (DTGUI.IsLayout && IsInsideInspector && Target.Input != null && Target.Output != null && (Target.Input.Count > 0 || Target.Output.Count > 0) && !Node.FindNode("Slots", out slotSection))
+                {
+                    Node.AddSection("Slots", OnShowSlots).SortOrder = 99999;
+                    Node.Sort();
+                }
+
+                if (GUILayout.Button(new GUIContent(CurvyStyles.OpenGraphTexture, "Edit Graph")) && Target.Generator)
+                {
+                    CGGraph win = CGGraph.Open(Target.Generator);
+                    win.Sel.SetSelectionTo(Target);
+                    win.Canvas.FocusSelection();
+                }
+
+                base.OnInspectorGUI();
+
+
+
+            }
+        }
+
+        void OnShowSlots(DTInspectorNode node)
+        {
+            if (Target)
+            {
+                List<CGModuleInputSlot> inSlots = Target.Input;
+                List<CGModuleOutputSlot> outSlots = Target.Output;
+
+                EditorGUILayout.BeginVertical(GUI.skin.box);
+
+                if (inSlots.Count > 0)
+                {
+                    EditorGUILayout.LabelField("Input", EditorStyles.boldLabel);
+                    showSlots(inSlots);
+                }
+
+                if (outSlots.Count > 0)
+                {
+                    EditorGUILayout.LabelField("Output", EditorStyles.boldLabel);
+                    showSlots(outSlots);
+                }
+                EditorGUILayout.EndVertical();
+                GUILayout.Space(10);
+
+            }
+        }
+
+        void showSlots<T>(List<T> slots) where T : CGModuleSlot
+        {
+            foreach (CGModuleSlot slot in slots)
+            {
+                List<CGModule> linked = slot.GetLinkedModules();
+                if (linked.Count > 1)
+                {
+                    for (int i = 0; i < linked.Count; i++)
+                    {
+                        Object sel = EditorGUILayout.ObjectField((i == 0) ? slot.Info.DisplayName : " ", linked[i], typeof(CGModule), true);
+                        if (sel != linked[i])
+                            DTLog.Log("[Curvy] Linking modules from the inspector isn't supported yet! Use the Graph editor instead!", Target);
+                    }
+                }
+                else
+                {
+                    CGModule lm = (linked.Count == 0) ? null : linked[0];
+                    Object sel = EditorGUILayout.ObjectField(slot.Info.DisplayName, lm, typeof(CGModule), true);
+                    if (sel != lm)
+                        DTLog.Log("[Curvy] Linking modules from the inspector isn't supported yet! Use the Graph editor instead!", Target);
+                }
+            }
+        }
+
+
+        public void OnInspectorDebugGUIINTERNAL(UnityAction onChange)
+        {
+            if (Target)
+            {
+                ShowDebugStats.valueChanged.RemoveListener(onChange);
+                ShowDebugStats.valueChanged.AddListener(onChange);
+                GUILayout.BeginHorizontal(CurvyStyles.Toolbar);
+
+                ShowDebugStats.target = GUILayout.Toggle(ShowDebugStats.target, new GUIContent(CurvyStyles.DebugTexture, "Show Values"), EditorStyles.toolbarButton);
+
+                if (HasDebugVisuals)
+                {
+                    EditorGUI.BeginChangeCheck();
+                    ShowDebugVisuals = GUILayout.Toggle(ShowDebugVisuals, new GUIContent(CurvyStyles.DebugSceneViewTexture, "Visualize"), EditorStyles.toolbarButton);
+                    if (EditorGUI.EndChangeCheck())
+                        SceneView.RepaintAll();
+                }
+                else
+                    ShowDebugVisuals = false;
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(string.Format("{0:0.###} ms", Target.DEBUG_ExecutionTime.AverageMS));
+                GUILayout.Label(string.Format("{0:0} %", Target.DEBUG_ExecutionTime.AverageMS / Target.Generator.DEBUG_ExecutionTime.AverageMS * 100));
+                GUILayout.EndHorizontal();
+                GUILayout.Space(2);
+
+                if (EditorGUILayout.BeginFadeGroup(ShowDebugStats.faded))
+                {
+                    OnModuleDebugGUI();
+                }
+                EditorGUILayout.EndFadeGroup();
+            }
+        }
+
+
+
+        void CBSeedOptions()
+        {
+            if (!Target.RandomizeSeed)
+            {
+                Rect r = EditorGUILayout.GetControlRect(true, 16, EditorStyles.numberField, null);
+                r.width -= 16;
+                EditorGUI.PropertyField(r, serializedObject.FindProperty("m_Seed"));
+                r.x += r.width;
+                r.width = 16;
+                if (GUI.Button(r, new GUIContent(CurvyStyles.RndSeedTexture, "Randomize now!"), CurvyStyles.ImageButton))
+                {
+                    Target.Seed = unchecked((int)System.DateTime.Now.Ticks);
+                    Target.Generator.Refresh();
+                }
+            }
+        }
+
+
+    }
+
+    public class CGModuleEditor<T> : CGModuleEditorBase where T : CGModule
+    {
+        public new T Target
+        {
+            get
+            {
+                return target as T;
+            }
+        }
+
+
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGModuleEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGResourceEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 91cf6d920c15d7e44acdac5c2e58ad1a
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using System;
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.Curvy.Generator;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using FluffyUnderware.Curvy.Utils;
+using FluffyUnderware.Curvy;
+using FluffyUnderware.DevTools;
+using FluffyUnderware.DevTools.Extensions;
+using FluffyUnderware.DevToolsEditor;
+
+namespace FluffyUnderware.CurvyEditor.Generator
+{
+
+    public static class CGResourceEditorHandler
+    {
+        static readonly Dictionary<string, System.Type> Editors = new Dictionary<string, System.Type>();
+
+        internal static CGResourceEditor GetEditor(string resourceName, Component resource)
+        {
+            if (Editors.Count == 0)
+                loadEditors();
+            if (Editors.ContainsKey(resourceName))
+            {
+                return (CGResourceEditor)System.Activator.CreateInstance(Editors[resourceName], (object)resource);
+            }
+            return null;
+        }
+
+        static void loadEditors()
+        {
+            Editors.Clear();
+            TypeCache.TypeCollection types = TypeCache.GetTypesWithAttribute<ResourceEditorAttribute>();
+            foreach (Type T in types)
+            {
+                object[] at = T.GetCustomAttributes(typeof(ResourceEditorAttribute), true);
+                Editors.Add(((ResourceEditorAttribute)at[0]).ResourceName, T);
+            }
+        }
+    }
+
+    public class CGResourceEditor
+    {
+        protected Component Resource { get; private set; }
+
+        public CGResourceEditor() { }
+
+        public CGResourceEditor(Component resource)
+        {
+            Resource = resource;
+        }
+
+        /// <summary>
+        /// Resource GUI
+        /// </summary>
+        /// <returns>true if changes were made</returns>
+        public virtual bool OnGUI() { return false; }
+
+        public static implicit operator bool(CGResourceEditor a)
+        {
+            return !object.ReferenceEquals(a, null);
+        }
+    }
+
+    [ResourceEditor("Mesh")]
+    public class CGMeshResourceGUI : CGResourceEditor
+    {
+
+        public CGMeshResourceGUI(Component resource) : base(resource)
+        {
+        }
+
+
+    }
+
+    [ResourceEditor("Spline")]
+    public class CGSplineResourceGUI : CGResourceEditor
+    {
+
+        public CGSplineResourceGUI(Component resource)
+            : base(resource)
+        {
+        }
+    }
+
+    [ResourceEditor("Shape")]
+    public class CGShapeResourceGUI : CGResourceEditor
+    {
+        CurvyShape2D mCurrentShape;
+        readonly string[] mMenuNames;
+        int mSelection;
+        bool mFreeform;
+
+        public CGShapeResourceGUI(Component resource) : base(resource)
+        {
+            mCurrentShape = resource.GetComponent<CurvyShape2D>();
+            mMenuNames = CurvyShape.GetShapesMenuNames((mCurrentShape) ? mCurrentShape.GetType() : null, out mSelection, true).ToArray();
+            mFreeform = (mCurrentShape == null);
+        }
+
+        public override bool OnGUI()
+        {
+            bool dirty = false;
+
+            bool b = GUILayout.Toggle(mFreeform, "Freeform");
+            if (b != mFreeform)
+            {
+                if (b)
+                {
+                    mCurrentShape.Spline.ShowGizmos = true;
+                    mCurrentShape.Delete();
+                    mCurrentShape = null;
+                    mFreeform = b;
+
+                }
+                else if (EditorUtility.DisplayDialog("Warning", "The current shape will be irreversible replaced. Are you sure?", "Ok", "Cancel"))
+                {
+                    if (DTUtility.DoesPrefabStatusAllowDeletion(Resource.gameObject.gameObject, out string errorMessage))
+                    {
+                        mFreeform = b;
+                        mCurrentShape = (CurvyShape2D)Resource.gameObject.AddComponent(CurvyShape.GetShapeType(mMenuNames[mSelection]));
+                        mCurrentShape.Dirty = true;
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog($"Cannot delete Game Object '{Resource.gameObject.name}'", errorMessage, "Ok");
+                    }
+                }
+
+            }
+            if (!mFreeform)
+            {
+                int sel = EditorGUILayout.Popup(mSelection, mMenuNames);
+                if (sel != mSelection)
+                {
+                    if (DTUtility.DoesPrefabStatusAllowDeletion(Resource.gameObject, out string errorMessage))
+                    {
+                        mSelection = sel;
+                        dirty = true;
+                        if (mCurrentShape)
+                            mCurrentShape.Delete();
+                        mCurrentShape = (CurvyShape2D)Resource.gameObject.AddComponent(CurvyShape.GetShapeType(mMenuNames[mSelection]));
+                        mCurrentShape.Dirty = true;
+                    }
+                    else
+                    {
+                        EditorUtility.DisplayDialog($"Cannot delete Game Object '{Resource.gameObject.name}'", errorMessage, "Ok");
+                    }
+                }
+                if (mCurrentShape)
+                {
+                    using (SerializedObject so = new SerializedObject(mCurrentShape))
+                    {
+                        SerializedProperty prop = so.GetIterator();
+
+                        bool enterChildren = true;
+
+                        while (prop.NextVisible(enterChildren))
+                        {
+                            switch (prop.name)
+                            {
+                                case "m_Script":
+                                case "InspectorFoldout":
+                                case "m_Plane":
+                                    //case "m_Persistent":
+                                    break;
+                                default:
+                                    EditorGUILayout.PropertyField(prop);
+                                    break;
+                            }
+                            enterChildren = false;
+                        }
+                        dirty = dirty || so.ApplyModifiedProperties();
+                    }
+                }
+            }
+
+            return dirty;
+        }
+    }
+
+    [System.AttributeUsage(System.AttributeTargets.Class)]
+    public class ResourceEditorAttribute : System.Attribute
+    {
+        public readonly string ResourceName;
+
+        public ResourceEditorAttribute(string resName)
+        {
+            ResourceName = resName;
+        }
+    }
+
+
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CGResourceEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CurvyGeneratorEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 1bc2fddee027afa438e389e26eb163dc
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using UnityEngine;
+using UnityEditor;
+using System.Collections;
+using FluffyUnderware.Curvy.Generator;
+using System.Collections.Generic;
+using FluffyUnderware.DevToolsEditor.Extensions;
+using FluffyUnderware.DevTools;
+
+namespace FluffyUnderware.CurvyEditor.Generator
+{
+    [CanEditMultipleObjects]
+    [CustomEditor(typeof(CurvyGenerator))]
+    public class CurvyGeneratorEditor : CurvyEditorBase<CurvyGenerator>
+    {
+        protected override void OnCustomInspectorGUI()
+        {
+            GUILayout.Space(5);
+            if (Target)
+                EditorGUILayout.HelpBox("# of Modules: " + Target.Modules.Count.ToString(), MessageType.Info);
+        }
+
+        public override void OnInspectorGUI()
+        {
+            //With the new prefab system (Unity 2018.3) prefabs don't show inspector, and when opening prefab editor, its objects are of type PrefabAssetType.NotAPrefab, so no way to know if its from prefab or not?
+
+            GUILayout.BeginHorizontal(GUILayout.Height(24));
+            if (GUILayout.Button(new GUIContent(CurvyStyles.OpenGraphTexture, "Edit Graph")))
+                CGGraph.Open(Target);
+
+            if (GUILayout.Button(new GUIContent(CurvyStyles.DeleteTexture, "Clear Graph"), GUILayout.ExpandWidth(false), GUILayout.ExpandHeight(true)) && EditorUtility.DisplayDialog("Clear", "Clear graph?", "Yes", "No"))
+                Target.Clear();
+            GUILayout.EndHorizontal();
+
+            base.OnInspectorGUI();
+        }
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/CurvyGeneratorEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/MetaCGOptionsEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 352a72fc4de23574f851e54f2adb3971
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+#if CONTRACTS_FULL
+using System.Diagnostics.Contracts;
+#endif
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.DevToolsEditor;
+using FluffyUnderware.Curvy;
+using UnityEngine.Assertions;
+
+namespace FluffyUnderware.CurvyEditor
+{
+    [CustomEditor(typeof(MetaCGOptions))]
+    [CanEditMultipleObjects]
+    public class MetaCGOptionsEditor : DTEditor<MetaCGOptions>
+    {
+
+        [DrawGizmo(GizmoType.Active | GizmoType.NonSelected | GizmoType.InSelectionHierarchy)]
+        static void MetaGizmoDrawer(MetaCGOptions data, GizmoType context)
+        {
+            if (data.Spline == null)
+                return;
+
+            if (CurvyGlobalManager.ShowMetadataGizmo && data.Spline.ShowGizmos)
+            {
+                if (data.CorrectedHardEdge)
+                {
+                    Vector3 position = data.ControlPoint.transform.position;
+#pragma warning disable CS0618
+                    CurvyGizmo.PointLabel(position, "^", OrientationAxisEnum.Down);
+#pragma warning restore CS0618
+                }
+                if (data.Spline.Dirty == false && data.MaterialID != 0)
+                {
+                    Vector3 position = data.Spline.ToWorldPosition(data.ControlPoint.Interpolate(0.5f));
+#pragma warning disable CS0618
+                    CurvyGizmo.PointLabel(position, data.MaterialID.ToString(), OrientationAxisEnum.Forward);
+#pragma warning restore CS0618
+                }
+            }
+        }
+
+        void CBSetFirstU()
+        {
+#if CONTRACTS_FULL
+            Contract.Requires(Target.ControlPoint.Spline != null);
+#endif
+            if (!Target.CorrectedUVEdge && GUILayout.Button("Set U from neighbours"))
+            {
+                CurvySplineSegment targetControlPoint = Target.ControlPoint;
+                CurvySpline targetSpline = targetControlPoint.Spline;
+
+                float uValue;
+                if (targetSpline.IsControlPointVisible(targetControlPoint))
+                {
+                    if (targetSpline.Count == 0)
+                        uValue = 0;
+                    else
+                    {
+                        //TODO this implementation has a lot in common with SplineInputModuleBase.CalculateExtendedUV. I am sure there is some duplicated code between these two, and there might be bugs due to those two implementations calculating U differently in some cases
+
+                        CurvySplineSegment previousUWithDefinedCp;
+                        CurvySpline curvySpline = Target.Spline;
+                        {
+                            CurvySplineSegment currentCp = curvySpline.GetPreviousControlPoint(targetControlPoint);
+                            if (currentCp == null || targetControlPoint == curvySpline.FirstVisibleControlPoint)
+                                previousUWithDefinedCp = targetControlPoint;
+                            else
+                            {
+                                while (currentCp != curvySpline.FirstVisibleControlPoint)
+                                {
+                                    MetaCGOptions currentCpOptions = currentCp.GetMetadata<MetaCGOptions>(true);
+                                    if (currentCpOptions.CorrectedUVEdge || currentCpOptions.ExplicitU)
+                                        break;
+                                    currentCp = curvySpline.GetPreviousControlPoint(currentCp);
+                                }
+                                previousUWithDefinedCp = currentCp;
+                            }
+
+                        }
+                        MetaCGOptions previousDefinedOptions = previousUWithDefinedCp.GetMetadata<MetaCGOptions>(true);
+
+                        CurvySplineSegment nextCpWithDefinedU;
+                        {
+
+                            CurvySplineSegment currentCp = curvySpline.GetNextControlPoint(targetControlPoint);
+                            if (currentCp == null || targetControlPoint == curvySpline.LastVisibleControlPoint)
+                                nextCpWithDefinedU = targetControlPoint;
+                            else
+                            {
+                                while (currentCp != curvySpline.LastVisibleControlPoint)
+                                {
+                                    MetaCGOptions currentCpOptions = currentCp.GetMetadata<MetaCGOptions>(true);
+                                    if (currentCpOptions.CorrectedUVEdge || currentCpOptions.ExplicitU)
+                                        break;
+                                    currentCp = curvySpline.GetNextControlPoint(currentCp);
+                                }
+
+                                nextCpWithDefinedU = currentCp;
+                            }
+                        }
+                        if (curvySpline.Closed && nextCpWithDefinedU == curvySpline.LastVisibleControlPoint)
+                            nextCpWithDefinedU = curvySpline.GetPreviousControlPoint(nextCpWithDefinedU);
+                        MetaCGOptions nextDefinedOptions = nextCpWithDefinedU.GetMetadata<MetaCGOptions>(true);
+
+                        float frag = (targetControlPoint.Distance - previousUWithDefinedCp.Distance) / (nextCpWithDefinedU.Distance - previousUWithDefinedCp.Distance);
+#if CURVY_SANITY_CHECKS
+                        Assert.IsFalse(float.IsNaN(frag));
+#endif
+
+                        float startingU = (previousUWithDefinedCp == targetControlPoint) ? 0 : previousDefinedOptions.GetDefinedSecondU(0);
+                        float endingU = (nextCpWithDefinedU == targetControlPoint) ? 1 : nextDefinedOptions.GetDefinedFirstU(1);
+                        uValue = Mathf.Lerp(startingU, endingU, frag);
+                    }
+
+                }
+                else
+                    uValue = 0;
+
+                Target.FirstU = uValue;
+
+
+                EditorUtility.SetDirty(target);
+            }
+        }
+    }
+
+
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CG/MetaCGOptionsEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/CurvyControllerEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 3952319cbfad670488083249e69f8d33
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using System;
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.Curvy;
+using FluffyUnderware.Curvy.Controllers;
+using FluffyUnderware.DevToolsEditor;
+using FluffyUnderware.DevTools;
+using UnityEngine.Assertions;
+
+namespace FluffyUnderware.CurvyEditor.Controllers
+{
+
+    public class CurvyControllerEditor<T> : CurvyEditorBase<T> where T : CurvyController
+    {
+        protected override void OnEnable()
+        {
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            base.OnEnable();
+        }
+
+        protected override void OnDisable()
+        {
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            base.OnDisable();
+            if (Application.isPlaying == false)
+                if (Target)
+                Target.Stop();
+        }
+
+        void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            OnStateChanged();
+        }
+
+        void OnStateChanged()
+        {
+            if (Application.isPlaying == false)
+                Target.Stop();
+
+        }
+
+        protected override void OnReadNodes()
+        {
+            DTGroupNode node = Node.AddSection("Preview", ShowPreviewButtons);
+            node.Expanded = false;
+            node.SortOrder = 5000;
+        }
+
+
+        /// <summary>
+        /// Show the preview buttons
+        /// </summary>
+        protected void ShowPreviewButtons(DTInspectorNode node)
+        {
+            GUILayout.BeginHorizontal();
+            GUI.enabled = !Application.isPlaying;
+
+            bool isPlayingOrPaused = Target.PlayState == CurvyController.CurvyControllerState.Playing || Target.PlayState == CurvyController.CurvyControllerState.Paused;
+
+            //TODO it would be nice to have two different icons, one for Play and one for Pause
+            if (GUILayout.Toggle(isPlayingOrPaused, new GUIContent(CurvyStyles.TexPlay, "Play/Pause in Editor"), GUI.skin.button) != isPlayingOrPaused)
+            {
+
+                switch (Target.PlayState)
+                {
+                    case CurvyController.CurvyControllerState.Paused:
+                    case CurvyController.CurvyControllerState.Stopped:
+                        Target.Play();
+                        break;
+                    case CurvyController.CurvyControllerState.Playing:
+                        Target.Pause();
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            if (GUILayout.Button(new GUIContent(CurvyStyles.TexStop, "Stop/Reset")))
+            {
+                Target.Stop();
+            }
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+        }
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/CurvyControllerEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/MoveModeDrawer.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: bc870c7e0be8b8a42bb5579d77bfa8e3
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using FluffyUnderware.Curvy.Controllers;
+using UnityEngine;
+using UnityEditor;
+
+namespace FluffyUnderware.CurvyEditor.Controllers
+{
+    [CustomPropertyDrawer(typeof(CurvyController.MoveModeEnum))]
+    public class MoveModeDrawer : PropertyDrawer
+    {
+        readonly GUIContent[] options = new[] { new GUIContent("Relative", "Speed is expressed as spline lengths per second"), new GUIContent("Absolute", "Speed is expressed as world units per second") };
+        readonly GUIStyle guiStyle = EditorStyles.popup;
+
+        override public void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            EditorGUI.BeginProperty(position, label, property);
+            property.intValue = EditorGUI.Popup(position, label, property.intValue, options, guiStyle);
+            EditorGUI.EndProperty();
+        }
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/MoveModeDrawer.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/OnPositionReachedSettingsDrawer.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 85be52f98941fdb4a95eec748bb89ba7
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+#region
+
+using System;
+using System.Collections.Generic;
+using FluffyUnderware.Curvy;
+using FluffyUnderware.Curvy.Controllers;
+using FluffyUnderware.DevTools.Extensions;
+using UnityEditor;
+using UnityEngine;
+
+#endregion
+
+namespace FluffyUnderware.CurvyEditor.Controllers
+{
+    [CustomPropertyDrawer(typeof(OnPositionReachedSettings))]
+    public class OnPositionReachedSettingsDrawer : PropertyDrawer
+    {
+        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+        {
+            OnPositionReachedSettings onPositionReachedSettings;
+            {
+                object value = fieldInfo.GetValue(property.serializedObject.targetObject);
+                if (value.GetType().IsArrayOrList())
+                {
+                    int startIndex = property.propertyPath.LastIndexOf('[');
+                    int endIndex = property.propertyPath.LastIndexOf(']');
+                    int index = Convert.ToInt32(property.propertyPath.Substring(startIndex + 1, endIndex - startIndex - 1));
+                    onPositionReachedSettings = ((List<OnPositionReachedSettings>)value)[index];
+                }
+                else
+                {
+                    onPositionReachedSettings = (OnPositionReachedSettings)value;
+                }
+            }
+
+            return GetPropertyHeight(property, onPositionReachedSettings);
+        }
+
+        public static float GetPropertyHeight(SerializedProperty property, OnPositionReachedSettings onPositionReachedSettings)
+        {
+            if (property.isExpanded == false)
+                return EditorGUIUtility.singleLineHeight;
+
+            return 190 + Math.Max(0, onPositionReachedSettings.Event.GetPersistentEventCount() - 1) * 47;
+        }
+
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            SerializedProperty nameProperty = property.FindPropertyRelative(nameof(OnPositionReachedSettings.Name));
+            SerializedProperty colorProperty = property.FindPropertyRelative(nameof(OnPositionReachedSettings.GizmoColor));
+            SerializedProperty eventProperty = property.FindPropertyRelative(nameof(OnPositionReachedSettings.Event));
+            SerializedProperty positionProperty = property.FindPropertyRelative(nameof(OnPositionReachedSettings.Position));
+            SerializedProperty positionModeProperty = property.FindPropertyRelative(nameof(OnPositionReachedSettings.PositionMode));
+            SerializedProperty triggeringDirectionsProperty = property.FindPropertyRelative(nameof(OnPositionReachedSettings.TriggeringDirections));
+
+            float fieldHeight = EditorGUIUtility.singleLineHeight;
+            float fieldMarginHeight = EditorGUIUtility.standardVerticalSpacing;
+
+            // Using BeginProperty / EndProperty on the parent property means that
+            // prefab override logic works on the entire property.
+            EditorGUI.BeginProperty(position, label, property);
+
+            string labelString;
+            {
+                if (property.isExpanded)
+                    labelString = $"{nameProperty.stringValue}";
+                else
+                {
+                    string positionModeEnumName;
+                    {
+                        bool positionModeParseSucceeded = Enum.TryParse(positionModeProperty.enumNames[positionModeProperty.enumValueIndex], out CurvyPositionMode positionMode);
+                        positionModeEnumName = positionModeParseSucceeded ? CurvyPositionModeDrawer.GetDisplayName(positionMode) : positionModeProperty.enumDisplayNames[positionModeProperty.enumValueIndex];
+                    }
+
+                    labelString = $"{nameProperty.stringValue} (Position: {positionModeEnumName} {positionProperty.floatValue} - Direction: {triggeringDirectionsProperty.enumDisplayNames[triggeringDirectionsProperty.enumValueIndex]})";
+                }
+            }
+            int indent = EditorGUI.indentLevel;
+            EditorGUI.indentLevel = indent + 1;
+
+            property.isExpanded = EditorGUI.Foldout(
+                new Rect(position.x,
+                    position.y,
+                    position.width,
+                    EditorGUIUtility.singleLineHeight),
+                property.isExpanded,
+                labelString);
+
+            if (property.isExpanded)
+            {
+                float yCoordinate = position.y;
+
+                EditorGUI.indentLevel = indent + 1;
+
+                yCoordinate += fieldHeight + fieldMarginHeight;
+
+                Rect nameRect = new Rect(position.x,
+                    yCoordinate,
+                    position.width - 75,
+                    fieldHeight);
+                Rect colorRect = new Rect(position.x + position.width - 70,
+                    yCoordinate,
+                    70,
+                    fieldHeight);
+
+                yCoordinate += fieldHeight + fieldMarginHeight;
+                Rect positionRect = new Rect(position.x,
+                    yCoordinate,
+                    position.width - 115,
+                    fieldHeight);
+                Rect positionModeRect = new Rect(position.x + position.width - 110,
+                    yCoordinate,
+                    110,
+                    fieldHeight);
+
+                yCoordinate += fieldHeight + fieldMarginHeight;
+                Rect directionRect = new Rect(position.x,
+                    yCoordinate,
+                    position.width,
+                    fieldHeight);
+
+                yCoordinate += fieldHeight + fieldMarginHeight;
+                Rect eventRect = new Rect(position.x,
+                    yCoordinate,
+                    position.width,
+                    position.height - 70);
+                eventRect = EditorGUI.IndentedRect(eventRect);
+
+                EditorGUI.PropertyField(nameRect, nameProperty);
+                EditorGUI.PropertyField(colorRect, colorProperty, GUIContent.none);
+                EditorGUI.PropertyField(eventRect, eventProperty, GUIContent.none);
+                EditorGUI.PropertyField(positionRect, positionProperty);
+                EditorGUI.PropertyField(positionModeRect, positionModeProperty, GUIContent.none);
+                EditorGUI.PropertyField(directionRect, triggeringDirectionsProperty);
+
+            }
+            EditorGUI.indentLevel = indent;
+
+
+            EditorGUI.EndProperty();
+        }
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/OnPositionReachedSettingsDrawer.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/PathControllerEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 709467389ecf3f446bda424d4e6fc7a7
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.Curvy.Controllers;
+
+namespace FluffyUnderware.CurvyEditor.Controllers
+{
+    [CanEditMultipleObjects]
+    [CustomEditor(typeof(PathController), true)]
+    public class PathControllerEditor : CurvyControllerEditor<PathController>
+    {
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/PathControllerEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/SplineControllerEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: e3d05319f569b3242a40cd95655a6a80
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using System;
+using UnityEngine;
+using UnityEditor;
+using System.Collections;
+using FluffyUnderware.Curvy;
+using FluffyUnderware.CurvyEditor;
+using FluffyUnderware.Curvy.Controllers;
+using FluffyUnderware.DevTools;
+using FluffyUnderware.DevToolsEditor;
+
+namespace FluffyUnderware.CurvyEditor.Controllers
+{
+    [CanEditMultipleObjects]
+    [CustomEditor(typeof(SplineController), true)]
+    public class SplineControllerEditor : CurvyControllerEditor<SplineController>
+    {
+        protected override void SetupArrayEx(DTFieldNode node, ArrayExAttribute attribute)
+        {
+            base.SetupArrayEx(node, attribute);
+
+            float ArrayExElementHeightCallback(int index)
+            {
+                if (index >= node.serializedProperty.arraySize)
+                    // this case happens due to this regression:  https://issuetracker.unity3d.com/issues/reorderablelist-dot-elementheightcallback-is-invoked-when-list-has-no-element
+                    return 0;
+
+                return OnPositionReachedSettingsDrawer.GetPropertyHeight(
+                    node.serializedProperty.GetArrayElementAtIndex(index),
+                    ((SplineController)target).OnPositionReachedList[index]);
+            }
+
+            node.ArrayEx.elementHeightCallback = ArrayExElementHeightCallback;
+        }
+
+        protected override void OnSceneGUI()
+        {
+            base.OnSceneGUI();
+
+            CurvySpline spline;
+
+            if (Target != null && (spline = Target.Spline) != null)
+            {
+                for (int index = 0; index < Target.OnPositionReachedList.Count; index++)
+                {
+                    OnPositionReachedSettings settings = Target.OnPositionReachedList[index];
+                    DTHandles.PushHandlesColor(settings.GizmoColor);
+
+                    Vector3 position;
+                    {
+                        switch (settings.PositionMode)
+                        {
+                            case CurvyPositionMode.Relative:
+                                position = spline.Interpolate(settings.Position, Space.World);
+                                break;
+                            case CurvyPositionMode.WorldUnits:
+                                position = spline.InterpolateByDistance(settings.Position, Space.World);
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
+                    }
+
+                    EditorGUI.BeginChangeCheck();
+
+                    float handleSize = HandleUtility.GetHandleSize(position) * .2f;
+                    Vector3 newPosition = Handles.FreeMoveHandle(position,
+#if UNITY_2022_1_OR_NEWER == false
+                        Quaternion.identity,
+#endif
+                        handleSize,
+                        Vector3.one * 0.5f, //couldn't figure out what value to put here. I put the same value as the example in the documentation
+                        Handles.SphereHandleCap);
+
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(Target, "Modify Custom Event Position");
+                        float nearestTf = spline.GetNearestPointTF(newPosition, Space.World);
+                        switch (settings.PositionMode)
+                        {
+                            case CurvyPositionMode.Relative:
+                                settings.Position = nearestTf;
+                                break;
+                            case CurvyPositionMode.WorldUnits:
+                                settings.Position = spline.TFToDistance(nearestTf);
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
+                    }
+
+                    //draw label
+                    {
+                        Color textColor = new Color(
+                            settings.GizmoColor.r * 0.2f,
+                            settings.GizmoColor.g * 0.2f,
+                            settings.GizmoColor.b * 0.2f,
+                            1);
+
+                        GUIStyle guiStyle = CurvyStyles.ControllerCustomEventStyle;
+                        lock (guiStyle)
+                        {
+                            guiStyle.normal.textColor = textColor;
+
+                            //inlined version of CurvyGizmo.PointLabel(newPosition, settings.Name, OrientationAxisEnum.Up, handleSize * 4, guiStyle);
+                            //I did the inline because CurvyGizmo.PointLabel has an issue with 2021.2, and I have a hack in that method to avoid the issue. The problem is the hack is counter-productive when the method is called from a OnSceneGUI method
+                            Vector3 labelPosition = newPosition;
+                            string label = settings.Name;
+
+                            //ugly shit to bypass the joke that is style.alignment. Tried to bypass the issue by using style.CalcSize(new GUIContent(label)) to manually place the labels. No luck with that
+                            while (label.Length <= 5)
+                                label = $" {label} ";
+
+                            labelPosition -= Camera.current.transform.right * (handleSize * 4) * 0.1f;
+                            labelPosition += Camera.current.transform.up * (handleSize * 4) * 0.1f;
+                            labelPosition += Camera.current.transform.up * (handleSize * 4) * 0.3f;
+
+                            Handles.Label(labelPosition, label, guiStyle);
+                        }
+                    }
+
+                    //direction handles
+                    {
+                        //optim if needed
+                        float tf = settings.PositionMode == CurvyPositionMode.Relative ? settings.Position : spline.DistanceToTF(settings.Position);
+                        Vector3 forward = spline.GetTangent(tf, Space.World);
+                        Vector3 backward = -spline.GetTangent(tf * (1f - 0.001f), Space.World); //todo not the best way to compute the backward tangent, but it is a decent one for now. Enhance this if needed once you rework tangents computing code
+
+                        if (settings.TriggeringDirections != TriggeringDirections.Backward)
+                            DTHandles.ArrowCap(newPosition, forward, Camera.current.transform.forward, settings.GizmoColor, .7f, .1f, .3f, .4f, handleSize * 2);
+                        if (settings.TriggeringDirections != TriggeringDirections.Forward)
+                            DTHandles.ArrowCap(newPosition, backward, Camera.current.transform.forward, settings.GizmoColor, .7f, .1f, .3f, .4f, handleSize * 2);
+                    }
+                    DTHandles.PopHandlesColor();
+                }
+            }
+        }
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/SplineControllerEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/VolumeControllerEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: c857adf1af41cc34896f8a078cd9ea11
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.Curvy.Controllers;
+
+namespace FluffyUnderware.CurvyEditor.Controllers
+{
+    [CanEditMultipleObjects]
+    [CustomEditor(typeof(VolumeController), true)]
+    public class VolumeControllerEditor : CurvyControllerEditor<VolumeController>
+    {
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/Controllers/VolumeControllerEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyConnectionEditor.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 512f7156b64ad1843b880b394f7bd408
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using FluffyUnderware.Curvy;
+using FluffyUnderware.DevToolsEditor;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.Assertions;
+
+namespace FluffyUnderware.CurvyEditor
+{
+    [CanEditMultipleObjects]
+    [CustomEditor(typeof(CurvyConnection))]
+    public class CurvyConnectionEditor : CurvyEditorBase<CurvyConnection>
+    {
+        /// <summary>
+        /// the gui style used in drawing the gizmo's label
+        /// </summary>
+        private GUIStyle sceneGuiLabelStyle;
+        /// <summary>
+        /// Used in the inspector, to avoid the margins added by Unity when subdivising a space
+        /// </summary>
+        private GUIStyle noMarginsStyle;
+
+        private GUIStyle highlightedItemStyle;
+
+        GUIContent selectCpContent;
+        GUIContent removeFromConnectionContent;
+        GUIContent controlPointTitleContent;
+        GUIContent syncPositionTitleContent;
+        GUIContent syncPositionContent;
+        GUIContent syncRotationTitleContent;
+        GUIContent syncRotationContent;
+        GUIContent noSyncPresetContent;
+        GUIContent positionSyncPresetContent;
+        GUIContent rotationSyncPresetContent;
+        GUIContent fullSyncPresetContent;
+
+        private GUIContent splineTitleContent;
+        private GUIContent endControlPointTitleContent;
+        private GUIContent followUpTitleContent;
+        private GUIContent headingDirectionTitleContent;
+
+        GUIContent splineStartDirectionContent;
+        GUIContent emptyContent;
+        GUIContent noDirectionContent;
+        GUIContent splineEndDirectionContent;
+        GUIContent automaticDirectionContent;
+        GUIContent directionUnavailableContent;
+
+        [DrawGizmo(GizmoType.Active | GizmoType.NonSelected | GizmoType.InSelectionHierarchy)]
+        private static void ConnectionGizmoDrawer(CurvyConnection connection, GizmoType context)
+        {
+            if (CurvyGlobalManager.ShowConnectionsGizmo)
+            {
+                Gizmos.color = connection.GetGizmoColor();
+
+                foreach (CurvySplineSegment cp in connection.ControlPointsList)
+                {
+                    if (cp.Spline.ShowGizmos)
+                    {
+                        //optim avoid drawing gizmo multiple times if cps have the same positin
+                        Vector3 position = cp.transform.position;
+                        float handleSize = HandleUtility.GetHandleSize(position);
+                        Gizmos.DrawWireSphere(position, handleSize * CurvyGlobalManager.GizmoControlPointSize * 1.1f);
+                    }
+                }
+            }
+        }
+
+
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            sceneGuiLabelStyle = new GUIStyle();
+            noMarginsStyle = new GUIStyle();
+            noMarginsStyle.margin = new RectOffset();
+            highlightedItemStyle = new GUIStyle();
+            highlightedItemStyle.normal.background = new Texture2D(1, 1);
+            highlightedItemStyle.normal.background.SetPixel(0, 0, new Color(62 / 255f, 125 / 255f, 231 / 255f));
+            highlightedItemStyle.normal.background.Apply();
+
+            selectCpContent = new GUIContent("Select", "Select the Control Point");
+            removeFromConnectionContent = new GUIContent(CurvyStyles.DeleteSmallTexture, "Remove the Control Point from this Connection");
+            controlPointTitleContent = new GUIContent("Control Point", "The name of the Control Point. You can select it or remove it from the connection");
+            syncPositionTitleContent = new GUIContent("Sync Position", "Synchronize the Control Point's position with the connection's");
+            syncPositionContent = new GUIContent("", "Synchronize the Control Point's position with the connection's");
+            syncRotationTitleContent = new GUIContent("Sync Rotation", "Synchronize the Control Point's rotation with the connection's");
+            syncRotationContent = new GUIContent("", "Synchronize the Control Point's rotation with the connection's");
+            noSyncPresetContent = new GUIContent(CurvyStyles.TexConnection, "No synchronization");
+            positionSyncPresetContent = new GUIContent(CurvyStyles.TexConnectionPos, "Position only");
+            rotationSyncPresetContent = new GUIContent(CurvyStyles.TexConnectionRot, "Rotation only");
+            fullSyncPresetContent = new GUIContent(CurvyStyles.TexConnectionFull, "Position and rotation");
+
+            splineTitleContent = new GUIContent("Spline", "The open spline for which the Follow-Up will be defined");
+            endControlPointTitleContent = new GUIContent("Control Point", "The spline's end that will have a Follow-Up, either its first or last visible Control Point");
+            followUpTitleContent = new GUIContent("Follow-Up", "The Control Point that will act as the continuity of the spline's end");
+            headingDirectionTitleContent = new GUIContent("Heading Direction", "In which direction the Follow-Up should continue on");
+
+            splineStartDirectionContent = new GUIContent("To spline's start", "The Follow-Up segment continues towards its spline's start");
+            emptyContent = new GUIContent("");
+            noDirectionContent = new GUIContent("Nowhere", "There is no continuity for the Follow-Up");
+            splineEndDirectionContent = new GUIContent("To spline's end", "The Follow-Up segment continues towards its spline's end");
+            automaticDirectionContent = new GUIContent("Automatic", "Automatically selects the best option");
+            directionUnavailableContent = new GUIContent("---", "Select a Follow-Up first");
+        }
+
+        public new void OnSceneGUI()
+        {
+            if (SceneView.currentDrawingSceneView.camera && Target)
+            {
+                int cpsCount = Target.ControlPointsList.Count;
+                if (cpsCount > 0)
+                {
+                    sceneGuiLabelStyle.normal.textColor = Target.GetGizmoColor();
+
+                    int syncedCPsCount = 0;
+                    for (int i = 0; i < cpsCount; i++)
+                    {
+                        CurvySplineSegment controlPoint = Target.ControlPointsList[i];
+
+                        int lineIndex;
+                        if (controlPoint.ConnectionSyncPosition)
+                        {
+                            lineIndex = syncedCPsCount;
+                            syncedCPsCount++;
+                        }
+                        else
+                            lineIndex = 0;
+
+                        Handles.Label(DTHandles.TranslateByPixel(controlPoint.transform.position, 12, -12 * (1 + lineIndex)), controlPoint.ToString(), sceneGuiLabelStyle);
+                    }
+                }
+            }
+        }
+
+        protected override void OnReadNodes()
+        {
+            //If ControlPointsGui is no more called first, make sure the undoing code in it is moved to the right place
+            Node.AddSection("Control Point Options", ControlPointsGui);
+            Node.AddSection("Follow-Up", FollowUpGui);
+            Node.AddSection("Connection Options", ConnectionGui);
+        }
+
+        private static float GetNodeWidth(DTInspectorNode node)
+        {
+            return EditorGUIUtility.currentViewWidth - 2 * node.Level * 15 /*value of EditorGUI.indent*/;
+        }
+
+        void ControlPointsGui(DTInspectorNode node)
+        {
+            const string undoingOperationLabel = "Connection Modification";
+            Undo.RecordObject(Target, undoingOperationLabel);
+            Undo.RecordObjects(Target.ControlPointsList.Select(o => (UnityEngine.Object)o).ToArray(), undoingOperationLabel);
+            Undo.RecordObjects(Target.ControlPointsList.Select(o => (UnityEngine.Object)o.transform).ToArray(), undoingOperationLabel);
+
+            float drawingWidth = GetNodeWidth(node);
+            float column1Width = drawingWidth * 16 / 32;
+            float column2Width = drawingWidth * 8 / 32;
+            float column3Width = drawingWidth * 8 / 32;
+
+            //header           
+            {
+                EditorGUILayout.BeginHorizontal();
+                PositionGuiElements(() => GUILayout.Label(controlPointTitleContent, EditorStyles.boldLabel), column1Width, false);
+                PositionGuiElements(() => GUILayout.Label(syncPositionTitleContent, EditorStyles.boldLabel), column2Width);
+                PositionGuiElements(() => GUILayout.Label(syncRotationTitleContent, EditorStyles.boldLabel), column3Width);
+                EditorGUILayout.EndHorizontal();
+            }
+
+            //Items
+            for (int index = 0; index < Target.ControlPointsList.Count; index++)
+            {
+                CurvySplineSegment item = Target.ControlPointsList[index];
+
+                bool itemIsSelected = item.gameObject == Selection.activeGameObject;
+                EditorGUILayout.BeginHorizontal(itemIsSelected
+                    ? highlightedItemStyle
+                    : GUIStyle.none);
+
+                {
+                    PositionGuiElements(() =>
+                                        {
+                                            bool clicked = GUILayout.Button(item.ToString(), itemIsSelected
+                                                ? EditorStyles.whiteLabel
+                                                : EditorStyles.label, GUILayout.MinWidth(column1Width * 0.6f));
+
+                                            if (GUILayout.Button(selectCpContent, GUILayout.MinWidth(50)))
+                                                clicked = true;
+
+                                            if (clicked)
+                                                DTSelection.SetGameObjects(item);
+
+                                            if (GUILayout.Button(removeFromConnectionContent, CurvyStyles.ImageButton, GUILayout.MinWidth(20), GUILayout.MinHeight(18)))
+                                            {
+                                                item.Disconnect();
+                                                CurvyProject.Instance.ScanConnections();
+                                                GUIUtility.ExitGUI();
+                                            }
+                                        }, column1Width, false);
+                }
+
+                {
+                    PositionGuiElements(() =>
+                                        {
+                                            bool oldValue = item.ConnectionSyncPosition;
+                                            item.ConnectionSyncPosition = GUILayout.Toggle(oldValue, syncPositionContent);
+                                            if (item.ConnectionSyncPosition != oldValue)
+                                                item.Connection.SetSynchronisationPositionAndRotation(item.Connection.transform.position, item.Connection.transform.rotation);
+                                        }, column2Width);
+                    PositionGuiElements(() =>
+                                        {
+                                            bool oldValue = item.ConnectionSyncRotation;
+                                            item.ConnectionSyncRotation = GUILayout.Toggle(oldValue, syncRotationContent);
+                                            if (item.ConnectionSyncRotation != oldValue)
+                                                item.Connection.SetSynchronisationPositionAndRotation(item.Connection.transform.position, item.Connection.transform.rotation);
+                                        }, column3Width);
+                }
+
+                EditorGUILayout.EndHorizontal();
+            }
+
+            //Presets
+            {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label("Synchronization Presets", EditorStyles.boldLabel);
+                EditorGUILayout.EndHorizontal();
+
+
+                EditorGUILayout.BeginHorizontal(GUILayout.Width(drawingWidth));
+                bool syncPosition = false;
+                bool syncRotation = false;
+                bool buttonClicked = false;
+                if (GUILayout.Button(noSyncPresetContent))
+                {
+                    syncPosition = false;
+                    syncRotation = false;
+                    buttonClicked = true;
+                }
+
+                if (GUILayout.Button(positionSyncPresetContent))
+                {
+                    syncPosition = true;
+                    syncRotation = false;
+                    buttonClicked = true;
+                }
+
+                if (GUILayout.Button(rotationSyncPresetContent))
+                {
+                    syncPosition = false;
+                    syncRotation = true;
+                    buttonClicked = true;
+                }
+
+                if (GUILayout.Button(fullSyncPresetContent))
+                {
+                    syncPosition = true;
+                    syncRotation = true;
+                    buttonClicked = true;
+                }
+
+                if (buttonClicked && Target.ControlPointsList.Any())
+                {
+                    foreach (CurvySplineSegment controlPoint in Target.ControlPointsList)
+                    {
+                        controlPoint.ConnectionSyncPosition = syncPosition;
+                        controlPoint.ConnectionSyncRotation = syncRotation;
+                    }
+
+                    Target.SetSynchronisationPositionAndRotation(Target.transform.position, Target.transform.rotation);
+                    Target.AutoSetFollowUp();
+                }
+
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        private void PositionGuiElements(Action guiElementsDrawer, float elementsTotalWidth, bool spaceBefore = true, bool spaceAfter = true)
+        {
+            EditorGUILayout.BeginHorizontal(noMarginsStyle, GUILayout.Width(elementsTotalWidth));
+            if (spaceBefore)
+                GUILayout.FlexibleSpace();
+            guiElementsDrawer();
+            if (spaceAfter)
+                GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+        }
+
+        void FollowUpGui(DTInspectorNode node)
+        {
+            float drawingWidth = GetNodeWidth(node);
+            float column1Width = drawingWidth * 2 / 10;
+            float column2Width = drawingWidth * 2 / 10;
+            float column3Width = drawingWidth * 3 / 10;
+            float column4Width = drawingWidth * 3 / 10;
+
+            bool hasCpWhichCanHaveFollowUp = Target.ControlPointsList.Any(item => item.Spline && item.Spline.CanControlPointHaveFollowUp(item));
+
+            if (hasCpWhichCanHaveFollowUp)
+            {
+                //header           
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    PositionGuiElements(() => GUILayout.Label(splineTitleContent, EditorStyles.boldLabel, GUILayout.MaxWidth(column1Width)), column1Width);
+                    PositionGuiElements(() => GUILayout.Label(endControlPointTitleContent, EditorStyles.boldLabel, GUILayout.MaxWidth(column2Width)), column2Width);
+                    PositionGuiElements(() => GUILayout.Label(followUpTitleContent, EditorStyles.boldLabel), column3Width);
+                    PositionGuiElements(() => GUILayout.Label(headingDirectionTitleContent, EditorStyles.boldLabel), column4Width);
+                    EditorGUILayout.EndHorizontal();
+                }
+
+                for (int index = 0; index < Target.ControlPointsList.Count; index++)
+                {
+                    CurvySplineSegment item = Target.ControlPointsList[index];
+                    if (item.Spline && item.Spline.CanControlPointHaveFollowUp(item))
+                    {
+                        EditorGUILayout.BeginHorizontal();
+
+                        PositionGuiElements(() =>
+                            GUILayout.Label(item.Spline.name, GUILayout.MaxWidth(column1Width)), column1Width);
+                        PositionGuiElements(() =>
+                            GUILayout.Label(String.Format("{0} ({1})", item.name, item.IsLastControlPoint
+                                                ? "Last CP"
+                                                : "First CP"), GUILayout.MaxWidth(column2Width)), column2Width);
+                        PositionGuiElements(() =>
+                            {
+                                List<CurvySplineSegment> possibleTargets = (from cp in Target.ControlPointsList where cp != item select cp).ToList();
+                                int popUpIndex;
+                                {
+                                    if (item.FollowUp == null)
+                                        popUpIndex = 0;
+                                    else
+                                    {
+                                        int followUpIndex = possibleTargets.IndexOf(item.FollowUp);
+#if CURVY_SANITY_CHECKS
+                                        Assert.IsTrue(followUpIndex != -1);
+#endif
+                                        popUpIndex = followUpIndex + 1;
+                                    }
+                                }
+
+                                List<string> popUpContent;
+                                {
+                                    popUpContent = (from cp in possibleTargets select cp.ToString()).ToList();
+                                    popUpContent.Insert(0, "No Follow-Up");
+                                }
+
+                                EditorGUI.BeginChangeCheck();
+
+                                popUpIndex = EditorGUILayout.Popup(popUpIndex, popUpContent.ToArray(), GUILayout.MaxWidth(column3Width));
+
+                                if (EditorGUI.EndChangeCheck())
+                                {
+                                    item.SetFollowUp(popUpIndex == 0
+                                        ? null
+                                        : possibleTargets[popUpIndex - 1]);
+                                }
+                            }, column3Width);
+
+                        PositionGuiElements(() =>
+                                            {
+                                                CurvySplineSegment itemFollowUp = item.FollowUp;
+                                                if (itemFollowUp)
+                                                {
+                                                    int popUpIndex = (int)item.FollowUpHeading + 1;
+#if CURVY_SANITY_CHECKS
+                                                    Assert.IsTrue((int)ConnectionHeadingEnum.Minus == -1);
+                                                    Assert.IsTrue((int)ConnectionHeadingEnum.Sharp == 0);
+                                                    Assert.IsTrue((int)ConnectionHeadingEnum.Plus == 1);
+                                                    Assert.IsTrue((int)ConnectionHeadingEnum.Auto == 2);
+#endif
+
+                                                    GUIContent[] popUpContent =
+                                                                        {
+                                    CurvySplineSegment.CanFollowUpHeadToStart(itemFollowUp)
+                                        ? splineStartDirectionContent
+                                        : emptyContent,
+                                    noDirectionContent,
+                                    CurvySplineSegment.CanFollowUpHeadToEnd(itemFollowUp)
+                                        ? splineEndDirectionContent
+                                        : emptyContent,
+                                    automaticDirectionContent
+                                                    };
+                                                    EditorGUI.BeginChangeCheck();
+                                                    popUpIndex = EditorGUILayout.Popup(popUpIndex, popUpContent.ToArray(), GUILayout.MaxWidth(column4Width));
+                                                    if (EditorGUI.EndChangeCheck())
+                                                        item.FollowUpHeading = (ConnectionHeadingEnum)(popUpIndex - 1);
+                                                }
+                                                else
+                                                    GUILayout.Label(directionUnavailableContent);
+                                            }, column4Width);
+
+                        EditorGUILayout.EndHorizontal();
+                    }
+                }
+            }
+            else
+                GUILayout.Label("You should connect the first or last Control Point of an open spline to be able to setup Follow-Ups");
+        }
+
+        void ConnectionGui(DTInspectorNode node)
+        {
+            float drawingWidth = GetNodeWidth(node);
+
+            if (GUILayout.Button("Delete Connection", GUILayout.Width(drawingWidth)))
+            {
+                Target.Delete();
+                GUIUtility.ExitGUI();
+            }
+        }
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyConnectionEditor.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyEditorBase.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 7e36bb3df4d2e75438de2de819b17da8
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.DevToolsEditor;
+using FluffyUnderware.DevTools;
+using FluffyUnderware.Curvy;
+using System.Collections.Generic;
+
+
+namespace FluffyUnderware.CurvyEditor
+{
+    public class CurvyEditorBase<T> : DTEditor<T> where T:MonoBehaviour
+    {
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyEditorBase.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyEditorUtility.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 0352d3a03998f41468aeff206517dd0e
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using System;
+using UnityEngine;
+using UnityEditor;
+using System.IO;
+using FluffyUnderware.Curvy;
+using FluffyUnderware.DevTools.Extensions;
+using FluffyUnderware.DevToolsEditor;
+using FluffyUnderware.DevTools;
+using JetBrains.Annotations;
+using Application = UnityEngine.Application;
+
+namespace FluffyUnderware.CurvyEditor
+{
+
+    public static class CurvyEditorUtility
+    {
+        public static void SendBugReport()
+        {
+            string par = string.Format("@Operating System@={0}&@Unity Version@={1}&@Curvy Version@={2}", SystemInfo.operatingSystem, Application.unityVersion, CurvySpline.VERSION);
+            Application.OpenURL(CurvySpline.WEBROOT + "bugreport?" + par.Replace(" ", "%20"));
+        }
+
+        public static void GenerateAssemblyDefinitions()
+        {
+            string curvyRootPath = GetCurvyRootPath();
+            if (String.IsNullOrEmpty(curvyRootPath))
+            {
+                DTLog.LogError("[Curvy] Assembly Definitions generation aborted, couldn't locate the installation folder");
+            }
+            else
+            {
+                string curvyRootPathAbsolute = Application.dataPath + "/" + curvyRootPath;
+                DirectoryInfo parentInfo = Directory.GetParent(curvyRootPathAbsolute).Parent;
+                string assetsParentDirectory = parentInfo.FullName;
+                string toolbuddyDirectory = parentInfo.Parent.FullName;
+
+                GenerateAssemblyDefinition($"{assetsParentDirectory}/Arrays Pooling/ToolBuddy.ArraysPooling.asmdef",
+                    @"
+{
+	""name"":""ToolBuddy.ArraysPooling""
+}");
+
+                GenerateAssemblyDefinition($"{toolbuddyDirectory}/Dependencies/Vector Graphics/ToolBuddy.Dependencies.VectorGraphics.asmdef",
+                    @"
+{
+	""name"":""ToolBuddy.Dependencies.VectorGraphics""
+}");
+
+                GenerateAssemblyDefinition($"{toolbuddyDirectory}/Dependencies/DevTools/FluffyUnderware.DevTools.asmdef",
+                    @"
+{
+	""name"":""FluffyUnderware.DevTools""
+}");
+
+                GenerateAssemblyDefinition($"{toolbuddyDirectory}/Dependencies/LibTessDotNet/LibTessDotNet.asmdef",
+                @"
+{
+	""name"":""LibTessDotNet"",
+    ""references"":[
+        ""ToolBuddy.ArraysPooling""
+    ],
+    ""includePlatforms"":[],
+    ""excludePlatforms"":[]
+}");
+
+                GenerateAssemblyDefinition($"{toolbuddyDirectory}/Dependencies/DevTools/Editor/FlufyUnderware.DevTools.Editor.asmdef",
+                @"
+{
+    ""name"":""FluffyUnderware.DevTools.Editor"",
+    ""references"":[
+        ""ToolBuddy.ArraysPooling"",
+        ""FluffyUnderware.DevTools""
+    ],
+    ""includePlatforms"":[
+        ""Editor""
+    ],
+    ""excludePlatforms"":[]
+}");
+
+                GenerateAssemblyDefinition($"{assetsParentDirectory}/Curvy/ToolBuddy.Curvy.asmdef",
+                @"
+{
+    ""name"":""ToolBuddy.Curvy"",
+    ""references"":[
+        ""ToolBuddy.ArraysPooling"",
+        ""ToolBuddy.Dependencies.VectorGraphics"",
+        ""FluffyUnderware.DevTools"",
+        ""LibTessDotNet""
+    ],
+    ""includePlatforms"":[],
+    ""excludePlatforms"":[]
+}");
+
+                GenerateAssemblyDefinition($"{assetsParentDirectory}/Curvy/Editor/ToolBuddy.Curvy.Editor.asmdef",
+                @"
+{
+    ""name"":""ToolBuddy.Curvy.Editor"",
+    ""references"":[
+        ""ToolBuddy.ArraysPooling"",
+        ""ToolBuddy.Curvy"",
+        ""FluffyUnderware.DevTools"",
+        ""FluffyUnderware.DevTools.Editor"",
+        ""LibTessDotNet""
+    ],
+    ""includePlatforms"":[
+        ""Editor""
+    ],
+    ""excludePlatforms"":[]
+}");
+
+                GenerateAssemblyDefinition($"{assetsParentDirectory}/Curvy Examples/ToolBuddy.Curvy.Examples.asmdef",
+                @"
+{
+    ""name"":""ToolBuddy.Curvy.Examples"",
+    ""references"":[
+        ""ToolBuddy.ArraysPooling"",
+        ""FluffyUnderware.DevTools"",
+        ""ToolBuddy.Curvy""
+    ],
+    ""includePlatforms"":[],
+    ""excludePlatforms"":[]
+}");
+
+                GenerateAssemblyDefinition($"{assetsParentDirectory}/Curvy Examples/Editor/ToolBuddy.Curvy.Examples.Editor.asmdef",
+                @"
+{
+    ""name"":""ToolBuddy.Curvy.Examples.Editor"",
+    ""references"":[
+        ""ToolBuddy.ArraysPooling"",
+        ""FluffyUnderware.DevTools"",
+        ""FluffyUnderware.DevTools.Editor"",
+        ""ToolBuddy.Curvy"",
+        ""ToolBuddy.Curvy.Editor"",
+        ""ToolBuddy.Curvy.Examples""
+    ],
+    ""includePlatforms"":[
+        ""Editor""
+    ],
+    ""excludePlatforms"":[]
+}");
+
+                AssetDatabase.Refresh();
+            }
+        }
+
+        private static void GenerateAssemblyDefinition(string filePath, string fileContent)
+        {
+            DirectoryInfo directory = Directory.GetParent(filePath);
+            if (Directory.Exists(directory.FullName) == false)
+                EditorUtility.DisplayDialog("Missing directory",
+                    String.Format("Could not find the directory '{0}', file generation will be skipped", directory.FullName), "Continue");
+            else if (!File.Exists(filePath) || EditorUtility.DisplayDialog("Replace File?", String.Format("The file '{0}' already exists! Replace it?", filePath), "Yes", "No"))
+                using (StreamWriter streamWriter = File.CreateText(filePath))
+                {
+                    streamWriter.WriteLine(fileContent);
+                }
+        }
+
+
+        /// <summary>
+        /// Converts a path/file relative to Curvy's root path to the real path, e.g. "ReadMe.txt" gives "Curvy/ReadMe.txt"
+        /// </summary>
+        /// <param name="relativePath">a path/file inside the Curvy package, WITHOUT the leading Curvy</param>
+        /// <returns>the real path, relative to Assets</returns>
+        public static string GetPackagePath(string relativePath)
+        {
+            return GetCurvyRootPath() + relativePath.TrimStart('/', '\\');
+        }
+        /// <summary>
+        /// Converts a path/file relative to Curvy's root path to the real absolute path
+        /// </summary>
+        /// <param name="relativePath">a path/file inside the Curvy package, WITHOUT the leading Curvy</param>
+        /// <returns>the absolute system path</returns>
+        public static string GetPackagePathAbsolute(string relativePath)
+        {
+            return Application.dataPath + "/" + GetPackagePath(relativePath);
+        }
+
+        /// <summary>
+        /// Gets the Curvy folder relative path, e.g. "Plugins/Curvy/" by default
+        /// </summary>
+        /// <returns></returns>
+        public static string GetCurvyRootPath()
+        {
+            // Quick check for the regular path
+            if (File.Exists(Application.dataPath + "/Plugins/ToolBuddy/Assets/Curvy/Scripts/Splines/CurvySpline.cs"))
+                return "Plugins/ToolBuddy/Assets/Curvy/";
+
+
+            // Still no luck? Do a project search
+            string[] guid = AssetDatabase.FindAssets("curvyspline_private"); //FindAssets("curvyspline") returns also files other than CurvySpline.cs
+            if (guid.Length == 0)
+            {
+                DTLog.LogError("[Curvy] Unable to locate CurvySpline_private.cs in the project! Is the Curvy package fully imported?");
+                return null;
+            }
+            else
+                return AssetDatabase.GUIDToAssetPath(guid[0]).TrimStart("Assets/").TrimEnd("Scripts/Splines/CurvySpline_private.cs");
+        }
+
+        /// <summary>
+        /// Gets the Curvy folder absolute path, i.e. Application.dataPath+"/"+CurvyEditorUtility.GetCurvyRootPath()
+        /// </summary>
+        /// <returns></returns>
+        public static string GetCurvyRootPathAbsolute()
+        {
+            return Application.dataPath + "/" + GetCurvyRootPath();
+        }
+    }
+
+    public static class CurvyGizmo
+    {
+        /// <summary>
+        /// Displays a label next to a point. The relative position of the label compared to the point is defined by <paramref name="direction"/>
+        /// </summary>
+#if CURVY_SANITY_CHECKS_PRIVATE
+        [Obsolete("Do not call this method from a method not having the DrawGizmo attribute until the issue with Unity 2021.2 is fixed")]
+#endif
+        public static void PointLabel(Vector3 pointPosition, String label, OrientationAxisEnum direction, float? handleSize = null, [CanBeNull] GUIStyle style = null)
+        {
+#if UNITY_2021_2_0 || UNITY_2021_2_1 || UNITY_2021_2_2 || UNITY_2021_2_3 || UNITY_2021_2_4 || UNITY_2021_2_5 || UNITY_2021_2_6 || UNITY_2021_2_7 || UNITY_2021_2_8 || UNITY_2021_2_9 || UNITY_2021_2_10 || UNITY_2021_2_11
+            //workaround to this issue: https://issuetracker.unity3d.com/issues/handles-dot-label-does-not-appear-in-the-supposed-place
+            //the issue seems to not happen when this method is called from a OnGui method.
+            pointPosition = DTHandles.TranslateByPixel(pointPosition, -53, 23);
+#endif
+            //ugly shit to bypass the joke that is style.alignment. Tried to bypass the issue by using style.CalcSize(new GUIContent(label)) to manually place the labels. No luck with that
+            while (label.Length <= 5)
+                label = $" {label} ";
+
+            if (handleSize.HasValue == false)
+                handleSize = HandleUtility.GetHandleSize(pointPosition);
+
+            style = style ?? CurvyStyles.GizmoText;
+
+            pointPosition -= Camera.current.transform.right * handleSize.Value * 0.1f;
+            pointPosition += Camera.current.transform.up * handleSize.Value * 0.1f;
+            Vector3 labelPosition;
+            switch (direction)
+            {
+                case OrientationAxisEnum.Up:
+                    //style.alignment = TextAnchor.LowerCenter;
+                    labelPosition = pointPosition;
+                    labelPosition += Camera.current.transform.up * handleSize.Value * 0.3f;
+                    break;
+                case OrientationAxisEnum.Down:
+                    //style.alignment = TextAnchor.UpperCenter;
+                    labelPosition = pointPosition;
+                    labelPosition -= Camera.current.transform.up * handleSize.Value * 0.3f;
+                    break;
+                case OrientationAxisEnum.Right:
+                    //style.alignment = TextAnchor.MiddleLeft;
+                    labelPosition = pointPosition;
+                    labelPosition += Camera.current.transform.right * handleSize.Value * 0.4f;
+                    break;
+                case OrientationAxisEnum.Left:
+                    //style.alignment = TextAnchor.MiddleRight;
+                    labelPosition = pointPosition;
+                    labelPosition -= Camera.current.transform.right * handleSize.Value * 0.45f;
+                    break;
+                case OrientationAxisEnum.Forward:
+                case OrientationAxisEnum.Backward:
+                    //style.alignment = TextAnchor.MiddleCenter;
+                    labelPosition = pointPosition;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
+            }
+
+            Handles.Label(labelPosition, label, style);
+        }
+    }
+    public static class CurvyGUI
+    {
+
+        #region ### GUI Controls ###
+
+        public static bool Foldout(ref bool state, string text) { return Foldout(ref state, new GUIContent(text), null); }
+        public static bool Foldout(ref bool state, string text, string helpURL) { return Foldout(ref state, new GUIContent(text), helpURL); }
+
+        public static bool Foldout(ref bool state, GUIContent content, string helpURL, bool hierarchyMode = true)
+        {
+            Rect controlRect = GUILayoutUtility.GetRect(content, CurvyStyles.Foldout);
+            bool isInsideInspector = DTInspectorNode.IsInsideInspector;
+            int xOffset = isInsideInspector ? 12 : -2;
+            controlRect.x -= xOffset;
+            controlRect.width += (isInsideInspector ? 0 : 1);
+
+            int indentLevel = DTInspectorNodeDefaultRenderer.RenderHeader(controlRect, xOffset, helpURL, content, ref state);
+
+            EditorGUI.indentLevel = indentLevel;
+
+            return state;
+        }
+
+        #endregion
+
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyEditorUtility.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyMenu.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: e881cd4f4b87e7646b55f627032e4ec0
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using UnityEngine;
+using UnityEditor;
+using System.Collections;
+using FluffyUnderware.Curvy;
+using FluffyUnderware.Curvy.Components;
+using FluffyUnderware.Curvy.Generator;
+using FluffyUnderware.CurvyEditor.Generator;
+using FluffyUnderware.Curvy.Controllers;
+using FluffyUnderware.Curvy.Shapes;
+using FluffyUnderware.DevToolsEditor;
+
+namespace FluffyUnderware.CurvyEditor
+{
+
+    public static class CurvyMenu
+    {
+        #region ### Tools Menu ###
+        #endregion
+
+        #region ### GameObject Menu ###
+
+        [MenuItem("GameObject/Curvy/Spline", false, 0)]
+        public static void CreateCurvySpline(MenuCommand cmd)
+        {
+            CurvySpline spline = Create<CurvySpline>(cmd);
+            ApplyIncrementalNameToSpline(spline);
+        }
+
+        [MenuItem("GameObject/Curvy/UI Spline", false, 1)]
+        public static void CreateCurvyUISpline(MenuCommand cmd)
+        {
+            GameObject parent = cmd.context as GameObject;
+            if (!parent || parent.GetComponentInParent<Canvas>() == null)
+            {
+                Canvas cv = GameObject.FindObjectOfType<Canvas>();
+                if (cv)
+                    parent = cv.gameObject;
+                else
+                    parent = new GameObject("Canvas", typeof(Canvas));
+            }
+
+            GameObject[] selectedGameObjects = Selection.gameObjects;
+            if (selectedGameObjects.Length > 0 && cmd.context == selectedGameObjects[0])
+                Selection.activeObject = null;
+
+            CurvyUISpline uiSpline;
+            {
+                const string gameObjectName = "UI Spline";
+                uiSpline = CurvyUISpline.CreateUISpline(gameObjectName);
+                GameObjectUtility.SetParentAndAlign(uiSpline.gameObject, parent as GameObject);
+                Undo.RegisterCreatedObjectUndo(uiSpline.gameObject, "Create " + gameObjectName);
+            }
+
+            DTSelection.AddGameObjects(uiSpline);
+        }
+
+        [MenuItem("GameObject/Curvy/Generator", false, 5)]
+        public static void CreateCG(MenuCommand cmd)
+        {
+            CurvyGenerator generator = Create<CurvyGenerator>(cmd);
+            ApplyIncrementalNameToGenerator(generator);
+
+        }
+
+        [MenuItem("GameObject/Curvy/Controllers/Spline", false, 10)]
+        public static void CreateSplineController(MenuCommand cmd) => Create<SplineController>(cmd);
+
+        [MenuItem("GameObject/Curvy/Controllers/CG Path", false, 12)]
+        public static void CreatePathController(MenuCommand cmd) => Create<PathController>(cmd);
+
+        [MenuItem("GameObject/Curvy/Controllers/CG Volume", false, 13)]
+        public static void CreateVolumeController(MenuCommand cmd) => Create<VolumeController>(cmd);
+
+        [MenuItem("GameObject/Curvy/Controllers/UI Text Spline", false, 14)]
+        public static void CreateUITextSplineController(MenuCommand cmd) => Create<UITextSplineController>(cmd);
+
+        [MenuItem("GameObject/" + CurvyLineRenderer.ComponentPath, false, 14)]
+        public static void CreateCurvyLineRenderer(MenuCommand cmd) => Create<CurvyLineRenderer>(cmd);
+
+        [MenuItem("GameObject/" + CurvySplineToEdgeCollider2D.ComponentPath, false, 14)]
+        public static void CreateCurvySplineToEdgeCollider2D(MenuCommand cmd) => Create<CurvySplineToEdgeCollider2D>(cmd);
+
+        [MenuItem("GameObject/Curvy/Shapes/Circle", false, 14)]
+        public static void CreateCSCircle(MenuCommand cmd) => Create<CSCircle>(cmd);
+
+        [MenuItem("GameObject/Curvy/Shapes/Pie", false, 14)]
+        public static void CreateCSPie(MenuCommand cmd) => Create<CSPie>(cmd);
+
+        [MenuItem("GameObject/Curvy/Shapes/Rectangle", false, 14)]
+        public static void CreateCSRectangle(MenuCommand cmd) => Create<CSRectangle>(cmd);
+
+        [MenuItem("GameObject/Curvy/Shapes/Rounded Rectangle", false, 14)]
+        public static void CreateCSRoundedRectangle(MenuCommand cmd) => Create<CSRoundedRectangle>(cmd);
+
+        [MenuItem("GameObject/Curvy/Shapes/Spiral", false, 14)]
+        public static void CreateCSSpiral(MenuCommand cmd) => Create<CSSpiral>(cmd);
+
+        [MenuItem("GameObject/Curvy/Shapes/Star", false, 14)]
+        public static void CreateCSStar(MenuCommand cmd) => Create<CSStar>(cmd);
+
+        [MenuItem("GameObject/Curvy/Misc/Nearest Spline Point", false, 14)]
+        public static void CreateNearestSplinePoint(MenuCommand cmd) => Create<NearestSplinePoint>(cmd);
+
+        [MenuItem("GameObject/Curvy/Misc/Curvy GL Renderer", false, 14)]
+        public static void CreateCurvyGLRenderer(MenuCommand cmd) => Create<CurvyGLRenderer>(cmd);
+
+
+        private static T Create<T>(MenuCommand cmd) where T : MonoBehaviour
+        {
+            GameObject[] selectedGameObjects = Selection.gameObjects;
+            if (selectedGameObjects.Length > 0 && cmd.context == selectedGameObjects[0])
+                Selection.activeObject = null;
+            T createdObject = CreateCurvyObjectAsChild<T>(cmd.context, typeof(T).Name);
+            DTSelection.AddGameObjects(createdObject);
+            return createdObject;
+        }
+
+        #endregion
+
+        #region ### Project window Create Menu ###
+
+        [MenuItem("Assets/Create/Curvy/CG Module")]
+        public static void CreatePCGModule()
+        {
+            ModuleWizard.Open();
+        }
+
+        [MenuItem("Assets/Create/Curvy/Shape")]
+        public static void CreateShape()
+        {
+            ShapeWizard.Open();
+        }
+
+        #endregion
+
+        public static T CreateCurvyObject<T>(Object parent, string name) where T : MonoBehaviour
+        {
+            GameObject go = parent as GameObject;
+            if (go == null)
+            {
+                go = new GameObject(name);
+                Undo.RegisterCreatedObjectUndo(go, "Create " + name);
+            }
+
+            T obj = go.AddComponent<T>();
+            Undo.RegisterCreatedObjectUndo(obj, "Create " + name);
+
+            return obj;
+        }
+
+        public static T CreateCurvyObjectAsChild<T>(Object parent, string name) where T : MonoBehaviour
+        {
+            GameObject go = new GameObject(name);
+            T obj = go.AddComponent<T>();
+            GameObjectUtility.SetParentAndAlign(go, parent as GameObject);
+            Undo.RegisterCreatedObjectUndo(go, "Create " + name);
+
+            return obj;
+        }
+
+        /// <summary>
+        /// Rename the given spline to "Curvy Spline number_of_existing_splines"
+        /// </summary>
+        public static void ApplyIncrementalNameToSpline(CurvySpline spline)
+        {
+            ApplyIncrementalName(spline, "Curvy Spline");
+        }
+
+        /// <summary>
+        /// Rename the given generator to "Curvy Generator number_of_existing_generators"
+        /// </summary>
+        public static void ApplyIncrementalNameToGenerator(CurvyGenerator generator)
+        {
+            ApplyIncrementalName(generator, "Curvy Generator");
+        }
+
+        /// <summary>
+        /// Rename the given component to "<paramref name="baseName"/> number_of_existing_components_of_type_T"
+        /// </summary>
+        public static void ApplyIncrementalName<T>(T component, string baseName) where T : Component
+        {
+            component.name = $"{baseName} {Object.FindObjectsOfType<T>().Length}";
+        }
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyMenu.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyPositionModeDrawer.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 7c344282607d5504190915d0f7a2c163
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using System;
+using FluffyUnderware.Curvy;
+using UnityEngine;
+using UnityEditor;
+
+namespace FluffyUnderware.CurvyEditor.Controllers
+{
+    [CustomPropertyDrawer(typeof(CurvyPositionMode))]
+    public class CurvyPositionModeDrawer : PropertyDrawer
+    {
+        private const string Relative = "Relative";
+        private const string Absolute = "Absolute";
+
+        readonly GUIContent[] options = new[]
+        {
+            new GUIContent(Relative,
+                "Position is expressed as a fraction of a spline: 0 meaning the spline start, 1 meaning the spline end."),
+            new GUIContent(Absolute,
+                "Position is expressed as world units")
+        };
+        readonly GUIStyle guiStyle = EditorStyles.popup;
+
+        override public void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            EditorGUI.BeginProperty(position, label, property);
+            property.intValue = EditorGUI.Popup(position, label, property.intValue, options, guiStyle);
+            EditorGUI.EndProperty();
+        }
+
+        /// <summary>
+        /// Gets the display name associated with a specific CurvyPositionMode value
+        /// </summary>
+        public static string GetDisplayName(CurvyPositionMode positionMode)
+        {
+            string displayName;
+            
+            switch (positionMode)
+            {
+                case CurvyPositionMode.Relative:
+                    displayName = Relative;
+                    break;
+                case CurvyPositionMode.WorldUnits:
+                    displayName = Absolute;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(positionMode), positionMode, null);
+            }
+
+            return displayName;
+
+        }
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyPositionModeDrawer.cs
+
+# FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyProject.cs
+# SYSTEM: com_ldx_frameworkSystem
+# TYPE: Framework.Editor
+# GUID: 6827729ab53799b47807d90abc775dbe
+# ASMDEF: Toolbuddy.Editor.dll
+# ---
+// =====================================================================
+// Copyright 2013-2022 ToolBuddy
+// All rights reserved
+// 
+// http://www.toolbuddy.net
+// =====================================================================
+
+using UnityEngine;
+using UnityEditor;
+using FluffyUnderware.Curvy;
+using FluffyUnderware.DevTools;
+using FluffyUnderware.DevTools.Extensions;
+using FluffyUnderware.DevToolsEditor;
+using System.Collections.Generic;
+
+namespace FluffyUnderware.CurvyEditor
+{
+    public class CurvyProject : DTProject
+    {
+        public const string NAME = "Curvy";
+        public const string RELPATH_SHAPEWIZARDSCRIPTS = "/Shapes";
+        public const string RELPATH_CGMODULEWIZARDSCRIPTS = "/Generator Modules";
+        public const string RELPATH_CGMODULEWIZARDEDITORSCRIPTS = "/Generator Modules/Editor";
+        public const string RELPATH_CGTEMPLATES = "/Generator Templates";
+
+        public static CurvyProject Instance
+        {
+            get
+            {
+                return (CurvyProject)DT.Project(NAME);
+            }
+        }
+
+        #region ### Persistent Settings ###
+        // DESIGN those settings are a mess: some are public fields, other properties of which the setter updates the editor preferences, and finally others ae part of CurvyGlobalManager (see CurvyProject.LoadPreferences to have a listing of them all). Shouldn't all of those settings be treated similarly?
+
+        // Settings from Preferences window not stored in CurvyGlobalManager
+
+        public bool SnapValuePrecision = true;
+        /// <summary>
+        /// If enabled and the spline has Restrict To 2D enabled, dots are shown instead of the default move handles
+        /// </summary>
+        public bool UseTiny2DHandles = false;
+        /// <summary>
+        /// Should the spline's text gizmos fade if the spline is too small on the screen
+        /// </summary>
+        public bool AutoFadeLabels = true;
+        public bool ShowGlobalToolbar = true;
+        public bool ShowHints = true;
+        public bool EnableMetrics = true;
+        public bool EnableAnnouncements = true;
+
+        // Settings made in the toolbar or somewhere else
+
+        bool mCGAutoModuleDetails = false;
+        public bool CGAutoModuleDetails
+        {
+            get { return mCGAutoModuleDetails; }
+            set
+            {
+                if (mCGAutoModuleDetails != value)
+                {
+                    mCGAutoModuleDetails = value;
+                    SetEditorPrefs("CGAutoModuleDetails", mCGAutoModuleDetails);
+                }
+            }
+        }
+
+        bool mCGSynchronizeSelection = true;
+        public bool CGSynchronizeSelection
+        {
+            get { return mCGSynchronizeSelection; }
+            set
+            {
+                if (mCGSynchronizeSelection != value)
+                {
+                    mCGSynchronizeSelection = value;
+                    SetEditorPrefs("CGSynchronizeSelection", mCGSynchronizeSelection);
+                }
+            }
+        }
+
+        bool mCGShowHelp = true;
+        public bool CGShowHelp
+        {
+            get { return mCGShowHelp; }
+            set
+            {
+                if (mCGShowHelp != value)
+                {
+                    mCGShowHelp = value;
+                    SetEditorPrefs("CGShowHelp", mCGShowHelp);
+                }
+            }
+        }
+
+        int mCGGraphSnapping = 5;
+        /// <summary>
+        /// The size of the grid used for snapping when dragging a module in Curvy Generator Graph
+        /// </summary>
+        public int CGGraphSnapping
+        {
+            get { return mCGGraphSnapping; }
+            set
+            {
+                int v = Mathf.Max(1, value);
+                if (mCGGraphSnapping != v)
+                {
+                    mCGGraphSnapping = v;
+                    SetEditorPrefs("CGGraphSnapping", mCGGraphSnapping);
+                }
+            }
+        }
+
+        string mCustomizationRootPath = "Packages/Curvy Customization";
+        public string CustomizationRootPath
+        {
+            get
+            {
+                return mCustomizationRootPath;
+            }
+            set
+            {
+                if (mCustomizationRootPath != value)
+                {
+                    mCustomizationRootPath = value;
+                    SetEditorPrefs("CustomizationRootPath", mCustomizationRootPath);
+                }
+            }
+        }
+
+        CurvyBezierModeEnum mBezierMode = CurvyBezierModeEnum.Direction | CurvyBezierModeEnum.Length;
+        public CurvyBezierModeEnum BezierMode
+        {
+            get { return mBezierMode; }
+            set
+            {
+                if (mBezierMode != value)
+                {
+                    mBezierMode = value;
+                    SetEditorPrefs("BezierMode", mBezierMode);
+                }
+            }
+        }
+
+        CurvyAdvBezierModeEnum mAdvBezierMode = CurvyAdvBezierModeEnum.Direction | CurvyAdvBezierModeEnum.Length;
+        public CurvyAdvBezierModeEnum AdvBezierMode
+        {
+            get { return mAdvBezierMode; }
+            set
+            {
+                if (mAdvBezierMode != value)
+                {
+                    mAdvBezierMode = value;
+                    SetEditorPrefs("AdvBezierMode", mAdvBezierMode);
+                }
+            }
+        }
+
+        bool mShowAboutOnLoad = true;
+        public bool ShowAboutOnLoad
+        {
+            get
+            {
+                return mShowAboutOnLoad;
+            }
+            set
+            {
+                if (mShowAboutOnLoad != value)
+                    mShowAboutOnLoad = value;
+                SetEditorPrefs("ShowAboutOnLoad", mShowAboutOnLoad);
+            }
+        }
+
+        #endregion
+
+
+
+
+
+        static Vector2 scroll;
+        static readonly bool[] foldouts = new bool[4] { true, true, true, true };
+        readonly List<int> mShowConIconObjects = new List<int>();
+
+
+        public CurvyProject()
+            : base(NAME, CurvySpline.VERSION)
+        {
+            Resource = CurvyResource.Instance;
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            Undo.undoRedoPerformed += OnUndoRedo;
+            EditorApplication.update -= OnUpdate;
+            EditorApplication.update += OnUpdate;
+            EditorApplication.update += checkLaunch;
+            EditorApplication.hierarchyChanged -= ScanConnections;
+            EditorApplication.hierarchyChanged += ScanConnections;
+            EditorApplication.hierarchyWindowItemOnGUI -= OnHierarchyWindowItemOnGUI;
+            EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
+            ScanConnections();
+        }
+
+        /// <summary>
+        /// Rebuilds the list of GameObject that needs to show a connection icon in the hierarchy window
+        /// </summary>
+        /// <remarks>Usually there is no need to call this manually</remarks>
+        public void ScanConnections()
+        {
+            int old = mShowConIconObjects.Count;
+            mShowConIconObjects.Clear();
+
+            CurvyConnection[] o = GameObject.FindObjectsOfType<CurvyConnection>();
+            foreach (CurvyConnection con in o)
+            {
+                foreach (CurvySplineSegment cp in con.ControlPointsList)
+                {
+                    if (cp != null && cp.gameObject != null)
+                        // see comment in CurvyConnection.DoUpdate to know more about when cp.gameObject can be null
+                        mShowConIconObjects.Add(cp.gameObject.GetInstanceID());
+                }
+            }
+
+            if (old != mShowConIconObjects.Count)
+                EditorApplication.RepaintHierarchyWindow();
+        }
+
+        void OnHierarchyWindowItemOnGUI(int instanceid, Rect selectionrect)
+        {
+            if (mShowConIconObjects.Contains(instanceid))
+            {
+                GUI.DrawTexture(new Rect(selectionrect.xMax - 14, selectionrect.yMin + 4, 10, 10), CurvyStyles.HierarchyConnectionTexture);
+            }
+        }
+
+        void checkLaunch()
+        {
+            EditorApplication.update -= checkLaunch;
+            if (ShowAboutOnLoad)
+                AboutWindow.Open();
+        }
+
+        void OnUpdate()
+        {
+
+            // check if a deleted Curvy object defines a new object to select
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                CurvySpline._newSelectionInstanceIDINTERNAL = 0;
+
+            if (CurvySpline._newSelectionInstanceIDINTERNAL != 0)
+            {
+                Object o = EditorUtility.InstanceIDToObject(CurvySpline._newSelectionInstanceIDINTERNAL);
+                if (o != null && o is Component)
+                    DTSelection.SetGameObjects((Component)o);
+                CurvySpline._newSelectionInstanceIDINTERNAL = 0;
+            }
+        }
+
+        void OnUndoRedo()
+        {
+            List<CurvySpline> splines = DTSelection.GetAllAs<CurvySpline>();
+            List<CurvySplineSegment> cps = DTSelection.GetAllAs<CurvySplineSegment>();
+            foreach (CurvySplineSegment cp in cps)
+            {
+                CurvySpline curvySpline = cp.transform.parent
+                    ? cp.transform.parent.GetComponent<CurvySpline>()
+                    : cp.Spline;
+                if (curvySpline && !splines.Contains(curvySpline))
+                    splines.Add(curvySpline);
+            }
+
+            foreach (CurvySpline spl in splines)
+            {
+                spl.SyncSplineFromHierarchy();
+                //spl.SetDirtyAll(SplineDirtyingType.Everything, true); is already done in spl.SyncSplineFromHierarchy();
+                spl.Refresh();
+            }
+        }
+
+
+
+        public override void ResetPreferences()
+        {
+            //reset only settings that are settable through the Preferences window
+
+            base.ResetPreferences();
+            CurvyGlobalManager.DefaultInterpolation = CurvyInterpolation.CatmullRom;
+            CurvyGlobalManager.DefaultGizmoColor = CurvyGlobalManager.DefaultDefaultGizmoColor;
+            CurvyGlobalManager.DefaultGizmoSelectionColor = CurvyGlobalManager.DefaultDefaultGizmoSelectionColor;
+            CurvyGlobalManager.GizmoControlPointSize = 0.15f;
+            CurvyGlobalManager.GizmoOrientationLength = 1f;
+            CurvyGlobalManager.GizmoOrientationColor = CurvyGlobalManager.DefaultGizmoOrientationColor;
+            CurvyGlobalManager.SceneViewResolution = 0.5f;
+            CurvyGlobalManager.HideManager = false;
+            CurvyGlobalManager.SplineLayer = 0;
+            CurvyGlobalManager.SaveGeneratorOutputs = true;
+
+            CustomizationRootPath = "Packages/Curvy Customization";
+            SnapValuePrecision = true;
+            UseTiny2DHandles = false;
+            AutoFadeLabels = true;
+            ShowGlobalToolbar = true;
+            EnableMetrics = true;
+            EnableAnnouncements = true;
+            ShowHints = true;
+
+            ToolbarMode = DTToolbarMode.Full;
+            ToolbarOrientation = DTToolbarOrientation.Left;
+
+            DT._UseSnapValuePrecision = SnapValuePrecision;
+            DTToolbarItem._StatusBar.Visible = ShowHints;
+        }
+
+        public override void LoadPreferences()
+        {
+            if (GetEditorPrefs("Version", "PreDT") == "PreDT")
+            {
+                DeletePreDTSettings();
+                SavePreferences();
+            }
+            base.LoadPreferences();
+            CurvyGlobalManager.DefaultInterpolation = GetEditorPrefs("DefaultInterpolation", CurvyGlobalManager.DefaultInterpolation);
+            CurvyGlobalManager.DefaultGizmoColor = GetEditorPrefs("GizmoColor", CurvyGlobalManager.DefaultGizmoColor);
+            CurvyGlobalManager.DefaultGizmoSelectionColor = GetEditorPrefs("GizmoSelectionColor", CurvyGlobalManager.DefaultGizmoSelectionColor);
+            CurvyGlobalManager.GizmoControlPointSize = GetEditorPrefs("GizmoControlPointSize", CurvyGlobalManager.GizmoControlPointSize);
+            CurvyGlobalManager.GizmoOrientationLength = GetEditorPrefs("GizmoOrientationLength", CurvyGlobalManager.GizmoOrientationLength);
+            CurvyGlobalManager.GizmoOrientationColor = GetEditorPrefs("GizmoOrientationColor", CurvyGlobalManager.GizmoOrientationColor);
+            CurvyGlobalManager.Gizmos = GetEditorPrefs("Gizmos", CurvyGlobalManager.Gizmos);
+            CurvyGlobalManager.SceneViewResolution = Mathf.Clamp01(GetEditorPrefs("SceneViewResolution", CurvyGlobalManager.SceneViewResolution));
+            CurvyGlobalManager.HideManager = GetEditorPrefs("HideManager", CurvyGlobalManager.HideManager);
+            CurvyGlobalManager.SplineLayer = GetEditorPrefs("SplineLayer", CurvyGlobalManager.SplineLayer);
+            CurvyGlobalManager.SaveGeneratorOutputs = GetEditorPrefs("SaveGeneratorOutputs", CurvyGlobalManager.SaveGeneratorOutputs);
+
+            mCustomizationRootPath = GetEditorPrefs("CustomizationRootPath", mCustomizationRootPath);
+            SnapValuePrecision = GetEditorPrefs("SnapValuePrecision", true);
+            UseTiny2DHandles = GetEditorPrefs("UseTiny2DHandles", UseTiny2DHandles);
+            AutoFadeLabels = GetEditorPrefs("AutoFadeLabels", AutoFadeLabels);
+            ShowGlobalToolbar = GetEditorPrefs("ShowGlobalToolbar", ShowGlobalToolbar);
+            EnableMetrics = GetEditorPrefs("EnableMetrics", true);
+            EnableAnnouncements = GetEditorPrefs("EnableAnnouncements", true);
+            ShowHints = GetEditorPrefs("ShowHints", ShowHints);
+
+            CurvyGlobalManager.SaveRuntimeSettings();
+
+            mCGAutoModuleDetails = GetEditorPrefs("CGAutoModuleDetails", mCGAutoModuleDetails);
+            mCGSynchronizeSelection = GetEditorPrefs("CGSynchronizeSelection", mCGSynchronizeSelection);
+            mCGShowHelp = GetEditorPrefs("CGShowHelp", mCGShowHelp);
+            mCGGraphSnapping = GetEditorPrefs("CGGraphSnapping", mCGGraphSnapping);
+            mBezierMode = GetEditorPrefs("BezierMode", mBezierMode);
+            mAdvBezierMode = GetEditorPrefs("AdvBezierMode", mAdvBezierMode);
+            mShowAboutOnLoad = GetEditorPrefs("ShowAboutOnLoad", mShowAboutOnLoad);
+
+            DT._UseSnapValuePrecision = SnapValuePrecision;
+            DTToolbarItem._StatusBar.Visible = ShowHints;
+        }
+
+        public override void SavePreferences()
+        {
+            base.SavePreferences();
+            SetEditorPrefs("DefaultInterpolation", CurvyGlobalManager.DefaultInterpolation);
+            SetEditorPrefs("GizmoColor", CurvyGlobalManager.DefaultGizmoColor);
+            SetEditorPrefs("GizmoSelectionColor", CurvyGlobalManager.DefaultGizmoSelectionColor);
+            SetEditorPrefs("GizmoControlPointSize", CurvyGlobalManager.GizmoControlPointSize);
+            SetEditorPrefs("GizmoOrientationLength", CurvyGlobalManager.GizmoOrientationLength);
+            SetEditorPrefs("GizmoOrientationColor", CurvyGlobalManager.GizmoOrientationColor);
+            SetEditorPrefs("Gizmos", CurvyGlobalManager.Gizmos);
+            SetEditorPrefs("SnapValuePrecision", SnapValuePrecision);
+            SetEditorPrefs("EnableAnnouncements", EnableAnnouncements);
+            SetEditorPrefs("EnableMetrics", EnableMetrics);
+            SetEditorPrefs("SceneViewResolution", CurvyGlobalManager.SceneViewResolution);
+            SetEditorPrefs("HideManager", CurvyGlobalManager.HideManager);
+            SetEditorPrefs("UseTiny2DHandles", UseTiny2DHandles);
+            SetEditorPrefs("AutoFadeLabels", AutoFadeLabels);
+            SetEditorPrefs("ShowGlobalToolbar", ShowGlobalToolbar);
+            SetEditorPrefs("ShowHints", ShowHints);
+            SetEditorPrefs("SplineLayer", CurvyGlobalManager.SplineLayer);
+            SetEditorPrefs("SaveGeneratorOutputs", CurvyGlobalManager.SaveGeneratorOutputs);
+            SetEditorPrefs("CustomizationRootPath", mCustomizationRootPath);
+
+            CurvyGlobalManager.SaveRuntimeSettings();
+            DT._UseSnapValuePrecision = SnapValuePrecision;
+            DTToolbarItem._StatusBar.Visible = ShowHints;
+        }
+
+        protected override void UpgradePreferences(string oldVersion)
+        {
+            base.UpgradePreferences(oldVersion);
+            // Ensure that About Window will be shown after upgrade
+            DeleteEditorPrefs("ShowAboutOnLoad");
+            if (oldVersion == "2.0.0")
+            {
+                if (GetEditorPrefs("GizmoOrientationLength", CurvyGlobalManager.GizmoOrientationLength) == 4)
+                    DeleteEditorPrefs("GizmoOrientationLength");
+            }
+
+        }
+
+        void DeletePreDTSettings()
+        {
+            DTLog.Log("[Curvy] Removing old preferences");
+            EditorPrefs.DeleteKey("Curvy_GizmoColor");
+            EditorPrefs.DeleteKey("Curvy_GizmoSelectionColor");
+            EditorPrefs.DeleteKey("Curvy_ControlPointSize");
+            EditorPrefs.DeleteKey("Curvy_OrientationLength");
+            EditorPrefs.DeleteKey("Curvy_Gizmos");
+            EditorPrefs.DeleteKey("Curvy_ToolbarLabels");
+            EditorPrefs.DeleteKey("Curvy_ToolbarOrientation");
+            EditorPrefs.DeleteKey("Curvy_ShowShapeWizardUndoWarning");
+            EditorPrefs.DeleteKey("Curvy_KeyBindings");
+        }
+
+        #region Settings window
+
+        /// <summary>
+        /// The name of the settings entry of Curvy
+        /// </summary>
+        const string SettingsEntryName = "Curvy";
+
+        /// <summary>
+        /// The class used by Unity 2018.3 and newer to provide Curvy's preferences window
+        /// </summary>
+        public class CurvySettingsProvider : SettingsProvider
+        {
+
+            public CurvySettingsProvider(SettingsScope scopes, IEnumerable<string> keywords = null)
+                : base(GetPreferencesPath(), scopes, keywords)
+            { }
+
+            public override void OnGUI(string searchContext)
+            {
+                PreferencesGUI();
+            }
+
+            /// <summary>
+            /// The settings path for Curvy's Settings
+            /// </summary>
+            public static string GetPreferencesPath()
+            {
+                return "Preferences/" + SettingsEntryName;
+            }
+        }
+
+        [SettingsProvider]
+        static SettingsProvider MyNewPrefCode()
+        {
+            return new CurvySettingsProvider(SettingsScope.User);
+        }
+
+        public static void PreferencesGUI()
+        {
+            scroll = EditorGUILayout.BeginScrollView(scroll);
+            CurvyGlobalManager.DefaultInterpolation = (CurvyInterpolation)EditorGUILayout.EnumPopup("Default Spline Type", CurvyGlobalManager.DefaultInterpolation);
+            CurvyGlobalManager.SplineLayer = EditorGUILayout.LayerField(new GUIContent("Default Spline Layer", "Layer to use for splines and Control Points"), CurvyGlobalManager.SplineLayer);
+
+            CurvyGlobalManager.SaveGeneratorOutputs = EditorGUILayout.Toggle(new GUIContent("Save Generator Outputs", "Whether the output of Curvy Generators should be saved in the scene file.\nDisable this option to reduce the size of scene files. This might increase the saving time for complex scenes.\nThis option applies only on generators that are enabled and have Auto Refresh set to true"), CurvyGlobalManager.SaveGeneratorOutputs);
+
+            Instance.SnapValuePrecision = EditorGUILayout.Toggle(new GUIContent("Snap Value Precision", "Round inspector values"), Instance.SnapValuePrecision);
+
+            CurvyGlobalManager.HideManager = EditorGUILayout.Toggle(new GUIContent("Hide _CurvyGlobal_", "Hide the global manager in Hierarchy?"), CurvyGlobalManager.HideManager);
+
+            Instance.EnableAnnouncements = EditorGUILayout.Toggle(new GUIContent("Enable Announcements", "Display announcements from Curvy's developers"), Instance.EnableAnnouncements);
+
+            Instance.EnableMetrics = EditorGUILayout.Toggle(new GUIContent("Enable Metrics", "Send metrics to Curvy's developers. This includes data such as the Unity version, Curvy version, etc... Keeping this enabled helps us a lot maintaining Curvy"), Instance.EnableMetrics);
+
+            {
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.TextField(new GUIContent("Customization Root Path", "Base Path for custom Curvy extensions"), Instance.CustomizationRootPath);
+                if (GUILayout.Button(new GUIContent("<", "Select"), GUILayout.ExpandWidth(false)))
+                {
+                    string path = EditorUtility.OpenFolderPanel("Customization Root Path", Application.dataPath, "");
+                    if (!string.IsNullOrEmpty(path))
+                        Instance.CustomizationRootPath = path.Replace(Application.dataPath + "/", "");
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+            CurvyGlobalManager.SceneViewResolution = EditorGUILayout.Slider(new GUIContent("SceneView Resolution", "Lower values results in faster SceneView drawing"), CurvyGlobalManager.SceneViewResolution, 0, 1);
+
+            foldouts[0] = EditorGUILayout.Foldout(foldouts[0], "Gizmo", CurvyStyles.Foldout);
+            if (foldouts[0])
+            {
+                CurvyGlobalManager.DefaultGizmoColor = EditorGUILayout.ColorField("Spline color", CurvyGlobalManager.DefaultGizmoColor);
+                CurvyGlobalManager.DefaultGizmoSelectionColor = EditorGUILayout.ColorField("Spline Selection color", CurvyGlobalManager.DefaultGizmoSelectionColor);
+                CurvyGlobalManager.GizmoControlPointSize = EditorGUILayout.FloatField("Control Point Size", CurvyGlobalManager.GizmoControlPointSize);
+                CurvyGlobalManager.GizmoOrientationLength = EditorGUILayout.FloatField(new GUIContent("Orientation Length", "Orientation gizmo size"), CurvyGlobalManager.GizmoOrientationLength);
+                CurvyGlobalManager.GizmoOrientationColor = EditorGUILayout.ColorField(new GUIContent("Orientation Color", "Orientation gizmo color"), CurvyGlobalManager.GizmoOrientationColor);
+                Instance.UseTiny2DHandles = EditorGUILayout.Toggle(new GUIContent("Use Tiny 2D Handles", "If enabled and the spline has Restrict To 2D enabled, dots are shown instead of the default move handles"), Instance.UseTiny2DHandles);
+                Instance.AutoFadeLabels = EditorGUILayout.Toggle(new GUIContent("Auto Fade Labels", "Should the spline's text gizmos fade if the spline is too small on the screen"), Instance.AutoFadeLabels);
+            }
+
+            foldouts[1] = EditorGUILayout.Foldout(foldouts[1], "UI", CurvyStyles.Foldout);
+            if (foldouts[1])
+            {
+                Instance.ShowGlobalToolbar = EditorGUILayout.Toggle(new GUIContent("Show Global Toolbar", "Always show Curvy Toolbar"), Instance.ShowGlobalToolbar);
+                Instance.ToolbarMode = (DTToolbarMode)EditorGUILayout.EnumPopup(new GUIContent("Toolbar Labels", "Defines Toolbar Display Mode"), Instance.ToolbarMode);
+                Instance.ToolbarOrientation = (DTToolbarOrientation)EditorGUILayout.EnumPopup(new GUIContent("Toolbar Orientation", "Defines Toolbar Position"), Instance.ToolbarOrientation);
+                Instance.ShowHints = EditorGUILayout.Toggle(new GUIContent("Show Hints", "Show hints, at the bottom of scene view, about the usage of some Curvy editor tools"), Instance.ShowHints);
+            }
+
+            foldouts[2] = EditorGUILayout.Foldout(foldouts[2], "Shortcuts", CurvyStyles.Foldout);
+            if (foldouts[2])
+            {
+                List<EditorKeyBinding> keys = Instance.GetProjectBindings();
+                foreach (EditorKeyBinding binding in keys)
+                {
+                    if (binding.OnPreferencesGUI()) // save changed bindings
+                    {
+                        Instance.SetEditorPrefs(binding.Name, binding.ToPrefsString());
+                    }
+                    GUILayout.Space(2);
+                    GUILayout.Box("", GUILayout.Height(1), GUILayout.ExpandWidth(true));
+                    GUILayout.Space(2);
+                }
+            }
+            if (GUILayout.Button("Reset to defaults"))
+            {
+                Instance.ResetPreferences();
+
+                List<EditorKeyBinding> keys = Instance.GetProjectBindings();
+                foreach (EditorKeyBinding binding in keys)
+                    Instance.DeleteEditorPrefs(binding.Name);
+            }
+
+            EditorGUILayout.EndScrollView();
+
+            if (GUI.changed)
+            {
+                Instance.SavePreferences();
+                DT.ReInitialize(false);
+            }
+
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// Class for loading image resources
+    /// </summary>
+    public class CurvyResource : DTResource
+    {
+        static CurvyResource _Instance;
+        public static CurvyResource Instance
+        {
+            get
+            {
+                if (_Instance == null)
+                    _Instance = new CurvyResource();
+                return _Instance;
+            }
+        }
+
+        public CurvyResource()
+        {
+            ResourceDLL = FindResourceDLL("CurvyEditorIcons");
+            ResourceNamespace = "";//Assets.Curvy.Editor.Resources.";
+        }
+
+        private const string fallbackPackedString = "missing,16,16";
+
+        public static Texture2D Load(string packedString)
+        {
+            Texture2D tex = Instance.LoadPacked(packedString);
+            if (tex == null)
+            {
+                DTLog.LogError("Loading texture from packed string failed: " + packedString);
+                return Instance.LoadPacked(fallbackPackedString);
+            }
+
+            return tex;
+        }
+
+
+
+
+    }
+}
+# --- end Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyProject.cs
+
 # FILE: Packages/com_ldx_framework/Editor/Third Party/ToolBuddy/Curvy/Editor/CurvyPropertyDrawers.cs
 # SYSTEM: com_ldx_frameworkSystem
 # TYPE: Framework.Editor
